@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const morgan = require('morgan');
 const path = require('path');
 
 const authRoutes = require('./routes/auth.routes');
@@ -18,6 +19,7 @@ const callRoutes = require('./routes/call.routes');
 const app = express();
 
 app.use(cors());
+app.use(morgan('dev'));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
