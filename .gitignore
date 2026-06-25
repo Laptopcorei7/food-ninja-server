@@ -2,3 +2,8 @@ node_modules/
 .env
 uploads/*
 !uploads/.gitkeep
+.wolf/
+.claude/
+/CLAUDE.md
+/API_CONTRACT.md
+
