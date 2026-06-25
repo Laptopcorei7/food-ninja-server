@@ -35,6 +35,101 @@ async function createOTP(overrides = {}) {
   });
 }
 
+// ─── POST /auth/otp/send (protected) ───────────────────────────────────────
+
+describe('POST /auth/otp/send', () => {
+  it('sends OTP and saves phone to user profile (200)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/otp/send`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({ phone: '+233501234567' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('OTP sent to your phone');
+
+    const updated = await User.findById(user._id);
+    expect(updated.phoneNumber).toBe('+233501234567');
+
+    const otp = await OTP.findOne({ contact: '+233501234567', purpose: 'verify_phone' });
+    expect(otp).not.toBeNull();
+    expect(otp.code).toHaveLength(4);
+  });
+
+  it('returns 400 when phone is missing', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/otp/send`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({});
+
+    expect(res.status).toBe(400);
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).post(`${BASE}/otp/send`).send({ phone: '+233501234567' });
+    expect(res.status).toBe(401);
+  });
+});
+
+// ─── POST /auth/otp/verify (protected) ─────────────────────────────────────
+
+describe('POST /auth/otp/verify', () => {
+  it('verifies a valid OTP and marks it as used (200)', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567' });
+    await createOTP({ contact: '+233501234567', code: '9876', purpose: 'verify_phone' });
+
+    const res = await request(app)
+      .post(`${BASE}/otp/verify`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({ otp: '9876' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Phone verified successfully');
+
+    const record = await OTP.findOne({ contact: '+233501234567' });
+    expect(record.used).toBe(true);
+  });
+
+  it('returns 400 for a wrong OTP code', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567' });
+    await createOTP({ contact: '+233501234567', code: '9876', purpose: 'verify_phone' });
+
+    const res = await request(app)
+      .post(`${BASE}/otp/verify`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({ otp: '0000' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Invalid OTP');
+  });
+
+  it('returns 410 for an expired OTP', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567' });
+    await createOTP({
+      contact: '+233501234567',
+      code: '9876',
+      purpose: 'verify_phone',
+      expiresAt: new Date(Date.now() - 1000),
+    });
+
+    const res = await request(app)
+      .post(`${BASE}/otp/verify`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({ otp: '9876' });
+
+    expect(res.status).toBe(410);
+    expect(res.body.message).toBe('OTP expired');
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).post(`${BASE}/otp/verify`).send({ otp: '1234' });
+    expect(res.status).toBe(401);
+  });
+});
+
 // ─── DELETE /auth/account ──────────────────────────────────────────────────
 
 describe('DELETE /auth/account', () => {
