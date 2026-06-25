@@ -1,5 +1,6 @@
 const request = require('supertest');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const app = require('../app');
 const User = require('../models/User');
 const OTP = require('../models/OTP');
@@ -33,6 +34,29 @@ async function createOTP(overrides = {}) {
     ...overrides,
   });
 }
+
+// ─── DELETE /auth/account ──────────────────────────────────────────────────
+
+describe('DELETE /auth/account', () => {
+  it('deletes the authenticated user\'s account (200)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .delete(`${BASE}/account`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Account deleted successfully');
+
+    const deleted = await User.findById(user._id);
+    expect(deleted).toBeNull();
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).delete(`${BASE}/account`);
+    expect(res.status).toBe(401);
+  });
+});
 
 // ─── POST /auth/signup (alias for /register) ───────────────────────────────
 
