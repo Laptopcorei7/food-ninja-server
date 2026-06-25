@@ -34,6 +34,23 @@ async function createOTP(overrides = {}) {
   });
 }
 
+// ─── POST /auth/signup (alias for /register) ───────────────────────────────
+
+describe('POST /auth/signup', () => {
+  it('is an alias for /register and returns a token (201)', async () => {
+    const res = await request(app).post(`${BASE}/signup`).send({
+      name: 'Jane Doe',
+      email: 'jane@example.com',
+      password: 'secret123',
+    });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.token).toBeDefined();
+    expect(res.body.data.user.email).toBe('jane@example.com');
+  });
+});
+
 // ─── POST /auth/register ────────────────────────────────────────────────────
 
 describe('POST /auth/register', () => {
