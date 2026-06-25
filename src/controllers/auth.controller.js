@@ -144,6 +144,61 @@ exports.resetPassword = async (req, res) => {
   }
 };
 
+// Protected OTP send — saves phone to user profile, sends OTP via SMS
+exports.otpSend = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone)
+      return res.status(400).json({ success: false, message: 'phone is required' });
+
+    const code = generateOTP();
+    const expiresAt = new Date(Date.now() + 90 * 1000);
+
+    await OTP.deleteMany({ contact: phone, purpose: 'verify_phone', used: false });
+    await OTP.create({ contact: phone, code, purpose: 'verify_phone', expiresAt, used: false });
+    await User.findByIdAndUpdate(req.user._id, { phoneNumber: phone });
+
+    await sendOTP({ method: 'sms', contact: phone, code });
+
+    return res.json({ success: true, message: 'OTP sent to your phone' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// Protected OTP verify — looks up OTP by user's saved phone number
+exports.otpVerify = async (req, res) => {
+  try {
+    const { otp } = req.body;
+    if (!otp)
+      return res.status(400).json({ success: false, message: 'otp is required' });
+
+    const user = await User.findById(req.user._id);
+    if (!user.phoneNumber)
+      return res.status(400).json({ success: false, message: 'No phone number on file. Call /auth/otp/send first.' });
+
+    const record = await OTP.findOne({
+      contact: user.phoneNumber,
+      code: otp,
+      purpose: 'verify_phone',
+      used: false,
+    });
+
+    if (!record)
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
+
+    if (record.expiresAt < new Date())
+      return res.status(410).json({ success: false, message: 'OTP expired' });
+
+    record.used = true;
+    await record.save();
+
+    return res.json({ success: true, message: 'Phone verified successfully' });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 exports.deleteAccount = async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.user._id);
