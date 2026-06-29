@@ -158,7 +158,7 @@ exports.otpSend = async (req, res) => {
     await OTP.create({ contact: phone, code, purpose: 'verify_phone', expiresAt, used: false });
     await User.findByIdAndUpdate(req.user._id, { phoneNumber: phone });
 
-    await sendOTP({ method: 'sms', contact: phone, code });
+    await sendOTP(phone, code, 'sms');
 
     return res.json({ success: true, message: 'OTP sent to your phone' });
   } catch (err) {
