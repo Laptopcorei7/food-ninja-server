@@ -35,10 +35,10 @@ async function seed() {
     location: { address: '4 Liberation Road, Accra', latitude: 5.6037, longitude: -0.187 },
   });
 
-  const visa = await PaymentMethod.create({ userId: user._id, type: 'visa', last4: '4242', brand: 'Visa' });
-  const paypal = await PaymentMethod.create({ userId: user._id, type: 'paypal', details: TEST_USER.email });
-  user.paymentMethods = [visa._id, paypal._id];
-  user.defaultPaymentMethod = visa._id;
+  const card = await PaymentMethod.create({ userId: user._id, type: 'card', brand: 'visa', last4: '4242' });
+  const paypal = await PaymentMethod.create({ userId: user._id, type: 'paypal', brand: 'PayPal' });
+  user.paymentMethods = [card._id, paypal._id];
+  user.defaultPaymentMethod = card._id;
   await user.save();
 
   console.log(`Seeded ${TEST_USER.email} (password: SEED_USER_PASSWORD in .env)`);
