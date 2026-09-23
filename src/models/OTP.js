@@ -6,6 +6,7 @@ const otpSchema = new mongoose.Schema({
   purpose: { type: String, enum: ['verify_phone', 'forgot_password'], required: true },
   expiresAt: { type: Date, required: true },
   used: { type: Boolean, default: false },
+  attempts: { type: Number, default: 0 },
 }, { timestamps: true });
 
 // MongoDB TTL index auto-deletes expired OTP documents

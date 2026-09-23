@@ -487,6 +487,18 @@ describe('POST /auth/forgot-password/verify', () => {
     expect(res.body.message).toBe('Invalid code');
   });
 
+  it('refuses even the right code after 5 wrong guesses', async () => {
+    await createOTP({ purpose: 'forgot_password' });
+    const guess = (code) =>
+      request(app).post(`${BASE}/forgot-password/verify`).send({ contact: '+1234567890', code });
+
+    await Promise.all(['0000', '0001', '0002', '0003', '0004'].map(guess));
+    const res = await guess('1234');
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Invalid code');
+  });
+
   it('returns 400 for an expired code', async () => {
     await createOTP({ purpose: 'forgot_password', expiresAt: new Date(Date.now() - 1000) });
     const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
