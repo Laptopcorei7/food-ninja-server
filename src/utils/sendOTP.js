@@ -2,6 +2,11 @@ const twilio = require('twilio');
 const nodemailer = require('nodemailer');
 
 async function sendOTP(contact, code, method = 'sms') {
+  // Dev testing: print the code instead of paying for an SMS or waiting on email. Never set in production.
+  if (process.env.OTP_CONSOLE === 'true') {
+    console.log(`[OTP] ${method} to ${contact}: ${code}`);
+    return;
+  }
   if (method === 'sms') {
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
