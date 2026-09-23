@@ -6,6 +6,23 @@ const { generateToken } = require('../utils/generateToken');
 const { generateOTP } = require('../utils/generateOTP');
 const { sendOTP } = require('../utils/sendOTP');
 
+const MAX_OTP_ATTEMPTS = 5;
+
+// Every verify call spends one attempt, counted atomically so parallel guesses can't
+// all read the same count. Returns { otp } on success or { reason: 'invalid' | 'expired' }.
+async function consumeOTP(contact, code, purpose) {
+  const otp = await OTP.findOneAndUpdate(
+    { contact, purpose, used: false, attempts: { $lt: MAX_OTP_ATTEMPTS } },
+    { $inc: { attempts: 1 } },
+    { new: true }
+  );
+  if (!otp || otp.code !== String(code)) return { reason: 'invalid' };
+  if (otp.expiresAt < new Date()) return { reason: 'expired' };
+
+  const claimed = await OTP.findOneAndUpdate({ _id: otp._id, used: false }, { used: true }, { new: true });
+  return claimed ? { otp: claimed } : { reason: 'invalid' };
+}
+
 exports.register = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -74,15 +91,9 @@ exports.verifyOTP = async (req, res) => {
     if (!phoneNumber || !code || !purpose)
       return res.status(400).json({ success: false, message: 'phoneNumber, code, and purpose are required' });
 
-    const otp = await OTP.findOne({ contact: phoneNumber, code, purpose, used: false });
-    if (!otp)
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-
-    if (otp.expiresAt < new Date())
-      return res.status(400).json({ success: false, message: 'OTP expired' });
-
-    otp.used = true;
-    await otp.save();
+    const { reason } = await consumeOTP(phoneNumber, code, purpose);
+    if (reason)
+      return res.status(400).json({ success: false, message: reason === 'expired' ? 'OTP expired' : 'Invalid OTP' });
 
     return res.status(200).json({ success: true, data: { message: 'OTP verified' } });
   } catch (err) {
@@ -129,24 +140,13 @@ exports.verifyResetCode = async (req, res) => {
       return res.status(400).json({ success: false, message: 'contact and code are required' });
 
     const contact = req.body.contact.trim();
-    const otp = await OTP.findOne({
-      contact: { $in: [contact, contact.toLowerCase()] },
-      code,
-      purpose: 'forgot_password',
-      used: false,
-    });
-    if (!otp)
-      return res.status(400).json({ success: false, message: 'Invalid code' });
-
-    if (otp.expiresAt < new Date())
-      return res.status(400).json({ success: false, message: 'Code expired' });
+    const { otp, reason } = await consumeOTP({ $in: [contact, contact.toLowerCase()] }, code, 'forgot_password');
+    if (reason)
+      return res.status(400).json({ success: false, message: reason === 'expired' ? 'Code expired' : 'Invalid code' });
 
     const user = await User.findOne({ $or: [{ email: otp.contact }, { phoneNumber: otp.contact }] });
     if (!user)
       return res.status(400).json({ success: false, message: 'Invalid code' });
-
-    otp.used = true;
-    await otp.save();
 
     const resetToken = jwt.sign({ id: user._id }, resetSecret(user), { expiresIn: '10m' });
     return res.status(200).json({ success: true, data: { resetToken } });
@@ -218,21 +218,11 @@ exports.otpVerify = async (req, res) => {
     if (!user.phoneNumber)
       return res.status(400).json({ success: false, message: 'No phone number on file. Call /auth/otp/send first.' });
 
-    const record = await OTP.findOne({
-      contact: user.phoneNumber,
-      code: otp,
-      purpose: 'verify_phone',
-      used: false,
-    });
-
-    if (!record)
-      return res.status(400).json({ success: false, message: 'Invalid OTP' });
-
-    if (record.expiresAt < new Date())
+    const { reason } = await consumeOTP(user.phoneNumber, otp, 'verify_phone');
+    if (reason === 'expired')
       return res.status(410).json({ success: false, message: 'OTP expired' });
-
-    record.used = true;
-    await record.save();
+    if (reason)
+      return res.status(400).json({ success: false, message: 'Invalid OTP' });
 
     return res.json({ success: true, message: 'Phone verified successfully' });
   } catch (err) {
