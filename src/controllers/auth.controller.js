@@ -6,6 +6,7 @@ const { generateToken } = require('../utils/generateToken');
 const { generateOTP } = require('../utils/generateOTP');
 const { sendOTP } = require('../utils/sendOTP');
 const { isE164, E164_MESSAGE } = require('../utils/phone');
+const { handleError } = require('../utils/handleError');
 
 const MAX_OTP_ATTEMPTS = 5;
 
@@ -42,7 +43,7 @@ exports.register = async (req, res) => {
       data: { token: generateToken(user._id), user },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -62,7 +63,7 @@ exports.login = async (req, res) => {
       data: { token: generateToken(user._id), user },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -82,7 +83,7 @@ exports.sendOTP = async (req, res) => {
 
     return res.status(200).json({ success: true, data: { message: 'OTP sent' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -98,7 +99,7 @@ exports.verifyOTP = async (req, res) => {
 
     return res.status(200).json({ success: true, data: { message: 'OTP verified' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -125,7 +126,7 @@ exports.forgotPassword = async (req, res) => {
 
     return res.status(200).json(sent);
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -152,7 +153,7 @@ exports.verifyResetCode = async (req, res) => {
     const resetToken = jwt.sign({ id: user._id }, resetSecret(user), { expiresIn: '10m' });
     return res.status(200).json({ success: true, data: { resetToken } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -182,7 +183,7 @@ exports.resetPassword = async (req, res) => {
 
     return res.status(200).json({ success: true, data: { message: 'Password reset successful' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -206,7 +207,7 @@ exports.otpSend = async (req, res) => {
 
     return res.json({ success: true, data: { message: 'OTP sent to your phone' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -229,7 +230,7 @@ exports.otpVerify = async (req, res) => {
 
     return res.json({ success: true, data: { message: 'Phone verified successfully' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -241,6 +242,6 @@ exports.deleteAccount = async (req, res) => {
 
     return res.status(200).json({ success: true, message: 'Account deleted successfully' });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

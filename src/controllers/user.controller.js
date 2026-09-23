@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const PaymentMethod = require('../models/PaymentMethod');
 const { isE164, E164_MESSAGE } = require('../utils/phone');
+const { handleError } = require('../utils/handleError');
 
 // Maps DB field names to Flutter's expected field names
 function formatUser(user) {
@@ -20,7 +21,7 @@ exports.getMe = async (req, res) => {
   try {
     return res.json({ success: true, data: { user: formatUser(req.user) } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -37,7 +38,7 @@ exports.updateProfile = async (req, res) => {
     );
     return res.json({ success: true, data: { user: formatUser(user) } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -50,7 +51,7 @@ exports.uploadPhoto = async (req, res) => {
     const user = await User.findByIdAndUpdate(req.user._id, { photoUrl }, { new: true });
     return res.json({ success: true, data: { photoUrl: user.photoUrl } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -67,7 +68,7 @@ exports.updateLocation = async (req, res) => {
     );
     return res.json({ success: true, data: { user: formatUser(user) } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -82,7 +83,7 @@ exports.listPaymentMethods = async (req, res) => {
     }));
     return res.json({ success: true, data: { paymentMethods: formatted } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -100,6 +101,6 @@ exports.addPaymentMethod = async (req, res) => {
       data: { paymentMethod: { _id: method._id, type: method.type, last4: method.last4 ?? null } },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

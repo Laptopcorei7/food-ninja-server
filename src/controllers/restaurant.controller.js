@@ -1,5 +1,6 @@
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
+const { handleError } = require('../utils/handleError');
 
 exports.listRestaurants = async (req, res) => {
   try {
@@ -16,7 +17,7 @@ exports.listRestaurants = async (req, res) => {
 
     return res.json({ success: true, data: restaurants, total });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -29,7 +30,7 @@ exports.getRestaurant = async (req, res) => {
 
     return res.json({ success: true, data: restaurant });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -45,6 +46,6 @@ exports.getRestaurantMenu = async (req, res) => {
 
     return res.json({ success: true, data: items, total });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

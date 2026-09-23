@@ -1,4 +1,5 @@
 const Order = require('../models/Order');
+const { handleError } = require('../utils/handleError');
 
 exports.getShipping = async (req, res) => {
   try {
@@ -14,7 +15,7 @@ exports.getShipping = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -34,6 +35,6 @@ exports.updateShipping = async (req, res) => {
 
     return res.json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

@@ -3,13 +3,14 @@ const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
 const Voucher = require('../models/Voucher');
 const { getIO } = require('../socket');
+const { handleError } = require('../utils/handleError');
 
 exports.getOrders = async (req, res) => {
   try {
     const orders = await Order.find({ userId: req.user._id }).sort({ createdAt: -1 });
     return res.json({ success: true, data: orders, total: orders.length });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -65,7 +66,7 @@ exports.getOrder = async (req, res) => {
 
     return res.json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -89,7 +90,7 @@ exports.updateOrderItem = async (req, res) => {
 
     return res.json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -109,7 +110,7 @@ exports.removeOrderItem = async (req, res) => {
 
     return res.json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -149,7 +150,7 @@ exports.placeOrder = async (req, res) => {
 
     return res.json({ success: true, data: order });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 

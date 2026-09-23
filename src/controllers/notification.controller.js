@@ -1,11 +1,12 @@
 const Notification = require('../models/Notification');
+const { handleError } = require('../utils/handleError');
 
 exports.listNotifications = async (req, res) => {
   try {
     const notifications = await Notification.find({ userId: req.user._id }).sort({ timestamp: -1 });
     return res.json({ success: true, data: notifications, total: notifications.length });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -21,6 +22,6 @@ exports.markRead = async (req, res) => {
 
     return res.json({ success: true, data: notification });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

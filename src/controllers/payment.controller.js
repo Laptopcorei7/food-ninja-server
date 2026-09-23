@@ -1,12 +1,13 @@
 const PaymentMethod = require('../models/PaymentMethod');
 const User = require('../models/User');
+const { handleError } = require('../utils/handleError');
 
 exports.listPayments = async (req, res) => {
   try {
     const payments = await PaymentMethod.find({ userId: req.user._id });
     return res.json({ success: true, data: payments, total: payments.length });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -21,7 +22,7 @@ exports.addPayment = async (req, res) => {
 
     return res.status(201).json({ success: true, data: payment });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -34,7 +35,7 @@ exports.setDefault = async (req, res) => {
     await User.findByIdAndUpdate(req.user._id, { defaultPaymentMethod: payment._id });
     return res.json({ success: true, data: { message: 'Default payment method updated' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -52,6 +53,6 @@ exports.removePayment = async (req, res) => {
 
     return res.json({ success: true, data: { message: 'Payment method removed' } });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
