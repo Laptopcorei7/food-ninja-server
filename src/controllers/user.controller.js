@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const PaymentMethod = require('../models/PaymentMethod');
+const { isE164, E164_MESSAGE } = require('../utils/phone');
 
 // Maps DB field names to Flutter's expected field names
 function formatUser(user) {
@@ -26,6 +27,9 @@ exports.getMe = async (req, res) => {
 exports.updateProfile = async (req, res) => {
   try {
     const { firstName, lastName, phone } = req.body;
+    if (phone !== undefined && !isE164(phone))
+      return res.status(400).json({ success: false, message: E164_MESSAGE });
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { firstName, lastName, phoneNumber: phone },
