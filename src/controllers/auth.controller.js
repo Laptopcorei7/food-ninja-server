@@ -1,4 +1,5 @@
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const OTP = require('../models/OTP');
 const { generateToken } = require('../utils/generateToken');
@@ -91,9 +92,16 @@ exports.verifyOTP = async (req, res) => {
 
 exports.forgotPassword = async (req, res) => {
   try {
-    const { method, contact } = req.body;
-    if (!method || !contact)
-      return res.status(400).json({ success: false, message: 'method and contact are required' });
+    const { method } = req.body;
+    if (!['sms', 'email'].includes(method) || !req.body.contact)
+      return res.status(400).json({ success: false, message: 'method (sms or email) and contact are required' });
+
+    const contact = method === 'email' ? req.body.contact.trim().toLowerCase() : req.body.contact.trim();
+    const sent = { success: true, data: { message: 'Reset code sent' } };
+
+    // Same response when no account matches, so the endpoint can't be used to probe for accounts
+    const user = await User.findOne(method === 'email' ? { email: contact } : { phoneNumber: contact });
+    if (!user) return res.status(200).json(sent);
 
     const code = generateOTP();
     const expiresAt = new Date(Date.now() + 90 * 1000);
@@ -103,7 +111,45 @@ exports.forgotPassword = async (req, res) => {
 
     await sendOTP(contact, code, method);
 
-    return res.status(200).json({ success: true, data: { message: 'Reset code sent' } });
+    return res.status(200).json(sent);
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// The reset token is signed with the user's current password hash mixed into the secret:
+// protect() can't verify it (so it never works as a login token), and it stops verifying
+// once the password changes (so it works once).
+const resetSecret = (user) => process.env.JWT_SECRET + user.password;
+
+exports.verifyResetCode = async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!req.body.contact || !code)
+      return res.status(400).json({ success: false, message: 'contact and code are required' });
+
+    const contact = req.body.contact.trim();
+    const otp = await OTP.findOne({
+      contact: { $in: [contact, contact.toLowerCase()] },
+      code,
+      purpose: 'forgot_password',
+      used: false,
+    });
+    if (!otp)
+      return res.status(400).json({ success: false, message: 'Invalid code' });
+
+    if (otp.expiresAt < new Date())
+      return res.status(400).json({ success: false, message: 'Code expired' });
+
+    const user = await User.findOne({ $or: [{ email: otp.contact }, { phoneNumber: otp.contact }] });
+    if (!user)
+      return res.status(400).json({ success: false, message: 'Invalid code' });
+
+    otp.used = true;
+    await otp.save();
+
+    const resetToken = jwt.sign({ id: user._id }, resetSecret(user), { expiresIn: '10m' });
+    return res.status(200).json({ success: true, data: { resetToken } });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -111,32 +157,27 @@ exports.forgotPassword = async (req, res) => {
 
 exports.resetPassword = async (req, res) => {
   try {
-    const { contact, code, newPassword, confirmPassword } = req.body;
-    if (!contact || !code || !newPassword || !confirmPassword)
+    const { resetToken, newPassword, confirmPassword } = req.body;
+    if (!resetToken || !newPassword || !confirmPassword)
       return res.status(400).json({
         success: false,
-        message: 'contact, code, newPassword, and confirmPassword are required',
+        message: 'resetToken, newPassword, and confirmPassword are required',
       });
 
     if (newPassword !== confirmPassword)
       return res.status(400).json({ success: false, message: 'Passwords do not match' });
 
-    const otp = await OTP.findOne({ contact, code, purpose: 'forgot_password', used: false });
-    if (!otp)
-      return res.status(400).json({ success: false, message: 'Invalid or expired code' });
-
-    if (otp.expiresAt < new Date())
-      return res.status(400).json({ success: false, message: 'Code expired' });
-
-    const user = await User.findOne({ $or: [{ email: contact }, { phoneNumber: contact }] });
-    if (!user)
-      return res.status(404).json({ success: false, message: 'User not found' });
+    const invalid = { success: false, message: 'Reset link invalid or expired, request a new code' };
+    const user = await User.findById(jwt.decode(resetToken)?.id);
+    if (!user) return res.status(400).json(invalid);
+    try {
+      jwt.verify(resetToken, resetSecret(user));
+    } catch (err) {
+      return res.status(400).json(invalid);
+    }
 
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
-
-    otp.used = true;
-    await otp.save();
 
     return res.status(200).json({ success: true, data: { message: 'Password reset successful' } });
   } catch (err) {

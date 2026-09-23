@@ -384,17 +384,41 @@ describe('POST /auth/verify-otp', () => {
 // ─── POST /auth/forgot-password ─────────────────────────────────────────────
 
 describe('POST /auth/forgot-password', () => {
-  it('creates a forgot_password OTP and returns success (200)', async () => {
+  it('creates a forgot_password OTP for an existing account (200)', async () => {
+    await createUser({ phoneNumber: '+1234567890' });
     const res = await request(app).post(`${BASE}/forgot-password`).send({
       method: 'sms',
       contact: '+1234567890',
     });
 
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
+    expect(res.body.data.message).toBe('Reset code sent');
 
     const otp = await OTP.findOne({ contact: '+1234567890', purpose: 'forgot_password' });
     expect(otp).not.toBeNull();
+  });
+
+  it('matches email case-insensitively', async () => {
+    await createUser();
+    const res = await request(app).post(`${BASE}/forgot-password`).send({
+      method: 'email',
+      contact: 'Test@Example.com',
+    });
+
+    expect(res.status).toBe(200);
+    const otp = await OTP.findOne({ contact: 'test@example.com', purpose: 'forgot_password' });
+    expect(otp).not.toBeNull();
+  });
+
+  it('returns the same 200 but sends nothing when no account matches', async () => {
+    const res = await request(app).post(`${BASE}/forgot-password`).send({
+      method: 'sms',
+      contact: '+1999999999',
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.message).toBe('Reset code sent');
+    expect(await OTP.findOne({ contact: '+1999999999' })).toBeNull();
   });
 
   it('returns 400 when fields are missing', async () => {
@@ -404,20 +428,95 @@ describe('POST /auth/forgot-password', () => {
 
     expect(res.status).toBe(400);
   });
+
+  it('returns 400 for an unknown method', async () => {
+    const res = await request(app).post(`${BASE}/forgot-password`).send({
+      method: 'SMS',
+      contact: '+1234567890',
+    });
+
+    expect(res.status).toBe(400);
+  });
+});
+
+// ─── POST /auth/forgot-password/verify ─────────────────────────────────────
+
+describe('POST /auth/forgot-password/verify', () => {
+  beforeEach(async () => {
+    await createUser({ phoneNumber: '+1234567890' });
+  });
+
+  it('returns a resetToken and marks the code used (200)', async () => {
+    await createOTP({ purpose: 'forgot_password' });
+    const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '1234',
+    });
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.data.resetToken).toBe('string');
+
+    const again = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '1234',
+    });
+    expect(again.status).toBe(400);
+  });
+
+  it('issues a token that does not work as a login token', async () => {
+    await createOTP({ purpose: 'forgot_password' });
+    const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '1234',
+    });
+
+    const me = await request(app)
+      .get('/api/v1/users/me')
+      .set('Authorization', `Bearer ${res.body.data.resetToken}`);
+    expect(me.status).toBe(401);
+  });
+
+  it('returns 400 for a wrong code', async () => {
+    await createOTP({ purpose: 'forgot_password' });
+    const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '9999',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Invalid code');
+  });
+
+  it('returns 400 for an expired code', async () => {
+    await createOTP({ purpose: 'forgot_password', expiresAt: new Date(Date.now() - 1000) });
+    const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '1234',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Code expired');
+  });
 });
 
 // ─── POST /auth/reset-password ──────────────────────────────────────────────
 
 describe('POST /auth/reset-password', () => {
+  let resetToken;
+
   beforeEach(async () => {
     await createUser({ phoneNumber: '+1234567890' });
     await createOTP({ purpose: 'forgot_password' });
+    const res = await request(app).post(`${BASE}/forgot-password/verify`).send({
+      contact: '+1234567890',
+      code: '1234',
+    });
+    resetToken = res.body.data.resetToken;
   });
 
   it('resets the password and allows login with the new password (200)', async () => {
     const res = await request(app).post(`${BASE}/reset-password`).send({
-      contact: '+1234567890',
-      code: '1234',
+      resetToken,
       newPassword: 'newpassword456',
       confirmPassword: 'newpassword456',
     });
@@ -425,7 +524,6 @@ describe('POST /auth/reset-password', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
 
-    // Confirm new password actually works
     const login = await request(app).post(`${BASE}/login`).send({
       email: 'test@example.com',
       password: 'newpassword456',
@@ -433,10 +531,17 @@ describe('POST /auth/reset-password', () => {
     expect(login.status).toBe(200);
   });
 
+  it('rejects the same resetToken a second time', async () => {
+    const body = { resetToken, newPassword: 'newpassword456', confirmPassword: 'newpassword456' };
+    await request(app).post(`${BASE}/reset-password`).send(body);
+    const res = await request(app).post(`${BASE}/reset-password`).send(body);
+
+    expect(res.status).toBe(400);
+  });
+
   it('returns 400 when passwords do not match', async () => {
     const res = await request(app).post(`${BASE}/reset-password`).send({
-      contact: '+1234567890',
-      code: '1234',
+      resetToken,
       newPassword: 'newpassword456',
       confirmPassword: 'differentpassword',
     });
@@ -445,10 +550,10 @@ describe('POST /auth/reset-password', () => {
     expect(res.body.message).toBe('Passwords do not match');
   });
 
-  it('returns 400 for an invalid OTP code', async () => {
+  it('returns 400 for a login token passed as resetToken', async () => {
+    const user = await User.findOne({ email: 'test@example.com' });
     const res = await request(app).post(`${BASE}/reset-password`).send({
-      contact: '+1234567890',
-      code: '9999',
+      resetToken: jwt.sign({ id: user._id }, process.env.JWT_SECRET),
       newPassword: 'newpassword456',
       confirmPassword: 'newpassword456',
     });
@@ -457,10 +562,7 @@ describe('POST /auth/reset-password', () => {
   });
 
   it('returns 400 when fields are missing', async () => {
-    const res = await request(app).post(`${BASE}/reset-password`).send({
-      contact: '+1234567890',
-      code: '1234',
-    });
+    const res = await request(app).post(`${BASE}/reset-password`).send({ resetToken });
 
     expect(res.status).toBe(400);
   });
