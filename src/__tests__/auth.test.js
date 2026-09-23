@@ -47,7 +47,7 @@ describe('POST /auth/otp/send', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.message).toBe('OTP sent to your phone');
+    expect(res.body.data.message).toBe('OTP sent to your phone');
 
     const updated = await User.findById(user._id);
     expect(updated.phoneNumber).toBe('+233501234567');
@@ -65,6 +65,18 @@ describe('POST /auth/otp/send', () => {
       .send({});
 
     expect(res.status).toBe(400);
+  });
+
+  it('returns 400 for a local-format phone like 0241234567', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/otp/send`)
+      .set('Authorization', `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`)
+      .send({ phone: '0241234567' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('phone must be in international format, e.g. +233241234567');
+    expect(await OTP.findOne({ contact: '0241234567' })).toBeNull();
   });
 
   it('returns 401 without a token', async () => {
@@ -87,7 +99,7 @@ describe('POST /auth/otp/verify', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.message).toBe('Phone verified successfully');
+    expect(res.body.data.message).toBe('Phone verified successfully');
 
     const record = await OTP.findOne({ contact: '+233501234567' });
     expect(record.used).toBe(true);

@@ -191,6 +191,9 @@ exports.otpSend = async (req, res) => {
     const { phone } = req.body;
     if (!phone)
       return res.status(400).json({ success: false, message: 'phone is required' });
+    // E.164: + then country code and number, 8-15 digits. Twilio rejects anything else.
+    if (!/^\+[1-9]\d{7,14}$/.test(phone))
+      return res.status(400).json({ success: false, message: 'phone must be in international format, e.g. +233241234567' });
 
     const code = generateOTP();
     const expiresAt = new Date(Date.now() + 90 * 1000);
@@ -201,7 +204,7 @@ exports.otpSend = async (req, res) => {
 
     await sendOTP(phone, code, 'sms');
 
-    return res.json({ success: true, message: 'OTP sent to your phone' });
+    return res.json({ success: true, data: { message: 'OTP sent to your phone' } });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -224,7 +227,7 @@ exports.otpVerify = async (req, res) => {
     if (reason)
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
 
-    return res.json({ success: true, message: 'Phone verified successfully' });
+    return res.json({ success: true, data: { message: 'Phone verified successfully' } });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
