@@ -132,6 +132,40 @@ describe('POST /users/me/photo', () => {
     expect(res.body.message).toBe('No file uploaded');
   });
 
+  it('returns JSON 400 for a non-image file', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/me/photo`)
+      .set('Authorization', authHeader(user._id))
+      .attach('photo', Buffer.from('hello'), { filename: 'note.txt', contentType: 'text/plain' });
+
+    expect(res.status).toBe(400);
+    expect(res.body).toEqual({ success: false, message: 'Only JPEG, PNG or WebP images are allowed' });
+  });
+
+  it('returns JSON 413 for a photo over 5 MB', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/me/photo`)
+      .set('Authorization', authHeader(user._id))
+      .attach('photo', Buffer.alloc(5 * 1024 * 1024 + 1), { filename: 'big.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(413);
+    expect(res.body).toEqual({ success: false, message: 'Photo must be under 5 MB' });
+  });
+
+  it('returns JSON 400, not an HTML page, for a malformed JSON body', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .patch(`${BASE}/me/profile`)
+      .set('Authorization', authHeader(user._id))
+      .set('Content-Type', 'application/json')
+      .send('{"firstName":');
+
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
   it('uploads a photo and returns a photoUrl (200)', async () => {
     const user = await createUser();
     const res = await request(app)

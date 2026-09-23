@@ -1,6 +1,7 @@
 const Chat = require("../models/Chat");
 const Message = require("../models/Message");
 const { getIO } = require("../socket");
+const { handleError } = require('../utils/handleError');
 
 exports.listChats = async (req, res) => {
   try {
@@ -9,7 +10,7 @@ exports.listChats = async (req, res) => {
     });
     return res.json({ success: true, data: chats, total: chats.length });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -29,7 +30,7 @@ exports.getMessages = async (req, res) => {
     });
     return res.json({ success: true, data: messages, total: messages.length });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -66,6 +67,6 @@ exports.sendMessage = async (req, res) => {
 
     return res.status(201).json({ success: true, data: message });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

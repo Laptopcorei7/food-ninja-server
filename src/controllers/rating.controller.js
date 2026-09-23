@@ -1,6 +1,7 @@
 const Rating = require('../models/Rating');
 const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
+const { handleError } = require('../utils/handleError');
 
 async function updateAverageRating(Model, targetId) {
   const ratings = await Rating.find({ targetId });
@@ -26,7 +27,7 @@ exports.rateDriver = async (req, res) => {
 
     return res.status(201).json({ success: true, data: rating });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -62,7 +63,7 @@ exports.rateFood = async (req, res) => {
 
     return res.status(201).json({ success: true, data: rating });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
@@ -85,6 +86,6 @@ exports.rateRestaurant = async (req, res) => {
 
     return res.status(201).json({ success: true, data: rating });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };

@@ -1,4 +1,5 @@
 const MenuItem = require('../models/MenuItem');
+const { handleError } = require('../utils/handleError');
 
 exports.getMenuItem = async (req, res) => {
   try {
@@ -8,6 +9,6 @@ exports.getMenuItem = async (req, res) => {
 
     return res.json({ success: true, data: item });
   } catch (err) {
-    return res.status(500).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
