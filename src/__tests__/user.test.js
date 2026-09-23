@@ -97,6 +97,20 @@ describe('PATCH /users/me/profile', () => {
     expect(res.body.data.user.phone).toBe('+233501234567');
   });
 
+  it('returns 400 and keeps the old phone for a local-format phone', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567' });
+    const res = await request(app)
+      .patch(`${BASE}/me/profile`)
+      .set('Authorization', authHeader(user._id))
+      .send({ firstName: 'John', phone: '0241234567' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('phone must be in international format, e.g. +233241234567');
+    const stored = await User.findById(user._id);
+    expect(stored.phoneNumber).toBe('+233501234567');
+    expect(stored.firstName).not.toBe('John');
+  });
+
   it('returns 401 without a token', async () => {
     const res = await request(app)
       .patch(`${BASE}/me/profile`)
