@@ -10,6 +10,7 @@ async function sendOTP(contact, code, method = 'sms') {
   if (method === 'sms') {
     // Android SMS Retriever autofill: <=140 bytes, the code as the only 4-digit number, and the
     // app's 11-char hash on the last line. The hash differs between debug and release builds.
+    // Keep the code before the hash: the app takes the first 4-digit match, and hashes can contain digits.
     const hash = process.env.SMS_APP_HASH;
     const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
     await client.messages.create({
