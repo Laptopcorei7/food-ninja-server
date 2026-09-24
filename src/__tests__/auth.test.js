@@ -103,6 +103,18 @@ describe('POST /auth/otp/verify', () => {
 
     const record = await OTP.findOne({ contact: '+233501234567' });
     expect(record.used).toBe(true);
+    expect((await User.findById(user._id)).phoneVerified).toBe(true);
+  });
+
+  it('otp/send to a different number clears phoneVerified; the same number keeps it', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567', phoneVerified: true });
+    const auth = `Bearer ${jwt.sign({ id: user._id }, process.env.JWT_SECRET)}`;
+
+    await request(app).post(`${BASE}/otp/send`).set('Authorization', auth).send({ phone: '+233501234567' });
+    expect((await User.findById(user._id)).phoneVerified).toBe(true);
+
+    await request(app).post(`${BASE}/otp/send`).set('Authorization', auth).send({ phone: '+233509999999' });
+    expect((await User.findById(user._id)).phoneVerified).toBe(false);
   });
 
   it('returns 400 for a wrong OTP code', async () => {

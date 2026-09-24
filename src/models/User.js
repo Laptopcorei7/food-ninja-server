@@ -7,6 +7,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true, lowercase: true },
   password: { type: String, required: true },
   phoneNumber: String,
+  // Set by otp/verify; reset whenever phoneNumber changes to a different number
+  phoneVerified: { type: Boolean, default: false },
   photoUrl: String,
   location: {
     address: String,

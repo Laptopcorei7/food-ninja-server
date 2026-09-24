@@ -201,7 +201,10 @@ exports.otpSend = async (req, res) => {
 
     await OTP.deleteMany({ contact: phone, purpose: 'verify_phone', used: false });
     await OTP.create({ contact: phone, code, purpose: 'verify_phone', expiresAt, used: false });
-    await User.findByIdAndUpdate(req.user._id, { phoneNumber: phone });
+    await User.findByIdAndUpdate(req.user._id, {
+      phoneNumber: phone,
+      ...(phone !== req.user.phoneNumber && { phoneVerified: false }),
+    });
 
     await sendOTP(phone, code, 'sms');
 
@@ -227,6 +230,9 @@ exports.otpVerify = async (req, res) => {
       return res.status(410).json({ success: false, message: 'OTP expired' });
     if (reason)
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
+
+    user.phoneVerified = true;
+    await user.save();
 
     return res.json({ success: true, data: { message: 'Phone verified successfully' } });
   } catch (err) {

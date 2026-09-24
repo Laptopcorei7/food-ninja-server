@@ -39,6 +39,23 @@ describe('GET /users/me', () => {
     expect(res.body.data.user.email).toBe('test@example.com');
   });
 
+  it('returns null / false / [] for every unset onboarding field on a new account', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .get(`${BASE}/me`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.body.data.user).toMatchObject({
+      firstName: null,
+      lastName: null,
+      phone: null,
+      phoneVerified: false,
+      photo: null,
+      location: null,
+      paymentMethods: [],
+    });
+  });
+
   it('maps phoneNumber → phone and photoUrl → photo in the response', async () => {
     const user = await createUser({ phoneNumber: '+233501234567', photoUrl: 'http://x/photo.jpg' });
     const res = await request(app)
@@ -95,6 +112,17 @@ describe('PATCH /users/me/profile', () => {
     expect(res.body.data.user.firstName).toBe('John');
     expect(res.body.data.user.lastName).toBe('Doe');
     expect(res.body.data.user.phone).toBe('+233501234567');
+  });
+
+  it('clears phoneVerified when the phone changes', async () => {
+    const user = await createUser({ phoneNumber: '+233501234567', phoneVerified: true });
+    const res = await request(app)
+      .patch(`${BASE}/me/profile`)
+      .set('Authorization', authHeader(user._id))
+      .send({ phone: '+233509999999' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.user.phoneVerified).toBe(false);
   });
 
   it('returns 400 and keeps the old phone for a local-format phone', async () => {
