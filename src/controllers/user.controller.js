@@ -9,6 +9,8 @@ function formatUser(user) {
   const { phoneNumber, photoUrl, location, ...rest } = obj;
   return {
     ...rest,
+    firstName: rest.firstName ?? null,
+    lastName: rest.lastName ?? null,
     phone: phoneNumber ?? null,
     photo: photoUrl ?? null,
     location: location
@@ -33,7 +35,12 @@ exports.updateProfile = async (req, res) => {
 
     const user = await User.findByIdAndUpdate(
       req.user._id,
-      { firstName, lastName, phoneNumber: phone },
+      {
+        firstName,
+        lastName,
+        phoneNumber: phone,
+        ...(phone !== undefined && phone !== req.user.phoneNumber && { phoneVerified: false }),
+      },
       { new: true }
     );
     return res.json({ success: true, data: { user: formatUser(user) } });

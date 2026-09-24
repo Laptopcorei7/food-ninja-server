@@ -31,6 +31,7 @@ async function seed() {
     email: TEST_USER.email,
     password: await bcrypt.hash(TEST_USER.password, 10),
     phoneNumber: TEST_USER.phoneNumber,
+    phoneVerified: true,
     photoUrl: 'https://i.pravatar.cc/300?u=tester@foodninja.dev',
     location: { address: '4 Liberation Road, Accra', latitude: 5.6037, longitude: -0.187 },
   });
