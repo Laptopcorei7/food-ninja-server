@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const CATEGORIES = require('../utils/categories');
 
 const testimonialSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
@@ -13,6 +14,7 @@ const menuItemSchema = new mongoose.Schema({
   restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   name: { type: String, required: true },
   price: { type: Number, required: true },
+  category: { type: String, enum: CATEGORIES },
   photoUrl: String,
   rating: { type: Number, default: 0 },
   orderCount: { type: Number, default: 0 },

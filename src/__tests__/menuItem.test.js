@@ -30,6 +30,66 @@ async function createMenuItem(overrides = {}) {
   });
 }
 
+// ─── GET /menu-items ───────────────────────────────────────────────────────
+
+describe('GET /menu-items', () => {
+  const point = (lat, lng) => ({ type: 'Point', coordinates: [lng, lat] });
+
+  beforeAll(() => Restaurant.init()); // $geoNear needs the 2dsphere index
+
+  async function seedTwoRestaurants() {
+    const near = await Restaurant.create({ name: 'Near', location: point(5.636, -0.158) });
+    const far = await Restaurant.create({ name: 'Far', location: point(5.556, -0.182) });
+    await MenuItem.create({ restaurantId: near._id, name: 'Jollof Rice', price: 40, category: 'rice', orderCount: 5 });
+    await MenuItem.create({ restaurantId: far._id, name: 'Waakye', price: 35, category: 'rice', orderCount: 9 });
+    await MenuItem.create({ restaurantId: far._id, name: 'Sobolo', price: 10, category: 'drinks', orderCount: 20 });
+  }
+
+  it('lists items across restaurants, most ordered first, with the restaurant name', async () => {
+    const user = await createUser();
+    await seedTwoRestaurants();
+
+    const res = await request(app)
+      .get(`${BASE}?limit=2`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ page: 1, totalPages: 2, total: 3 });
+    expect(res.body.data.items.map((i) => i.name)).toEqual(['Sobolo', 'Waakye']);
+    expect(res.body.data.items[0].restaurant.name).toBe('Far');
+    expect(res.body.data.items[0].distanceKm).toBeNull();
+  });
+
+  it('combines search, category and the restaurant distance', async () => {
+    const user = await createUser();
+    await seedTwoRestaurants();
+
+    const res = await request(app)
+      .get(`${BASE}?category=rice&lat=5.635&lng=-0.157&maxKm=2`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.map((i) => i.name)).toEqual(['Jollof Rice']);
+    expect(res.body.data.items[0].distanceKm).toBeCloseTo(0.2, 1);
+
+    const search = await request(app)
+      .get(`${BASE}?search=waa`)
+      .set('Authorization', authHeader(user._id));
+    expect(search.body.data.items.map((i) => i.name)).toEqual(['Waakye']);
+  });
+
+  it('sorts by distance when asked', async () => {
+    const user = await createUser();
+    await seedTwoRestaurants();
+
+    const res = await request(app)
+      .get(`${BASE}?lat=5.635&lng=-0.157&sort=distance`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.body.data.items[0].name).toBe('Jollof Rice');
+  });
+});
+
 // ─── GET /menu-items/:id ───────────────────────────────────────────────────
 
 describe('GET /menu-items/:id', () => {

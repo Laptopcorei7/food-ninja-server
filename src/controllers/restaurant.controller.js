@@ -1,21 +1,34 @@
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
 const { handleError } = require('../utils/handleError');
+const { parseListQuery, geoNearStage, pageFacet, pageResponse, roundDistance } = require('../utils/listQuery');
+
+// Restaurants have no order count, so "popular" ranks by rating.
+const SORT_STAGES = {
+  distance: { distanceKm: 1, _id: 1 },
+  rating: { rating: -1, _id: 1 },
+  popular: { rating: -1, _id: 1 },
+};
 
 exports.listRestaurants = async (req, res) => {
   try {
-    const { search, limit = 20, page = 1 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const q = parseListQuery(req.query);
+    if (q.error) return res.status(400).json({ success: false, message: q.error });
 
-    const filter = {};
-    if (search) filter.name = { $regex: search, $options: 'i' };
+    const match = {};
+    if (q.search) match.name = q.search;
+    if (q.categories.length) match.categories = { $in: q.categories };
 
-    const [restaurants, total] = await Promise.all([
-      Restaurant.find(filter).skip(skip).limit(Number(limit)),
-      Restaurant.countDocuments(filter),
+    const sort = q.sort ?? (q.point ? 'distance' : 'rating');
+    const result = await Restaurant.aggregate([
+      ...(q.point
+        ? [geoNearStage(q, match)]
+        : [{ $match: match }, { $addFields: { distanceKm: null } }]),
+      { $sort: SORT_STAGES[sort] },
+      pageFacet(q, [roundDistance]),
     ]);
 
-    return res.json({ success: true, data: restaurants, total });
+    return res.json({ success: true, data: pageResponse(result, q) });
   } catch (err) {
     return handleError(res, err);
   }
