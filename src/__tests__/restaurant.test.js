@@ -38,8 +38,8 @@ describe('GET /restaurants', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveLength(2);
-    expect(res.body.total).toBe(2);
+    expect(res.body.data.items).toHaveLength(2);
+    expect(res.body.data.total).toBe(2);
   });
 
   it('filters restaurants by search query (200)', async () => {
@@ -52,8 +52,8 @@ describe('GET /restaurants', () => {
       .set('Authorization', authHeader(user._id));
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(1);
-    expect(res.body.data[0].name).toBe('Pizza Palace');
+    expect(res.body.data.items).toHaveLength(1);
+    expect(res.body.data.items[0].name).toBe('Pizza Palace');
   });
 
   it('returns empty list when no restaurants match search', async () => {
@@ -65,13 +65,93 @@ describe('GET /restaurants', () => {
       .set('Authorization', authHeader(user._id));
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(0);
-    expect(res.body.total).toBe(0);
+    expect(res.body.data.items).toHaveLength(0);
+    expect(res.body.data.total).toBe(0);
   });
 
   it('returns 401 without a token', async () => {
     const res = await request(app).get(BASE);
     expect(res.status).toBe(401);
+  });
+
+  it('treats search text literally, not as a regex (200)', async () => {
+    const user = await createUser();
+    await createRestaurant({ name: 'Burger Place' });
+
+    const res = await request(app)
+      .get(`${BASE}?search=(`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items).toHaveLength(0);
+  });
+
+  it('filters by any of several categories and paginates', async () => {
+    const user = await createUser();
+    await createRestaurant({ name: 'A', categories: ['rice'], rating: 3 });
+    await createRestaurant({ name: 'B', categories: ['grills', 'drinks'], rating: 5 });
+    await createRestaurant({ name: 'C', categories: ['pizza-burgers'], rating: 4 });
+
+    const res = await request(app)
+      .get(`${BASE}?category=rice,grills&limit=1&page=2`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ page: 2, totalPages: 2, total: 2 });
+    expect(res.body.data.items.map((r) => r.name)).toEqual(['A']);
+    expect(res.body.data.items[0].distanceKm).toBeNull();
+  });
+
+  it('rejects an unknown category (400)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .get(`${BASE}?category=sushi`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Unknown category: sushi');
+  });
+
+  it('rejects lat without lng (400)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .get(`${BASE}?lat=5.6`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(400);
+  });
+
+  describe('with lat/lng', () => {
+    const point = (lat, lng) => ({ type: 'Point', coordinates: [lng, lat] });
+
+    beforeAll(() => Restaurant.init()); // $geoNear needs the 2dsphere index
+
+    beforeEach(async () => {
+      await createRestaurant({ name: 'East Legon', location: point(5.636, -0.158), rating: 3 });
+      await createRestaurant({ name: 'Madina', location: point(5.669, -0.166), rating: 5 });
+      await createRestaurant({ name: 'Osu', location: point(5.556, -0.182), rating: 4 });
+    });
+
+    it('sorts by distance by default and returns distanceKm', async () => {
+      const user = await createUser();
+      const res = await request(app)
+        .get(`${BASE}?lat=5.635&lng=-0.157`)
+        .set('Authorization', authHeader(user._id));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.items.map((r) => r.name)).toEqual(['East Legon', 'Madina', 'Osu']);
+      expect(res.body.data.items[0].distanceKm).toBeCloseTo(0.2, 1);
+    });
+
+    it('drops restaurants beyond maxKm', async () => {
+      const user = await createUser();
+      const res = await request(app)
+        .get(`${BASE}?lat=5.635&lng=-0.157&maxKm=5&sort=rating`)
+        .set('Authorization', authHeader(user._id));
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.items.map((r) => r.name)).toEqual(['Madina', 'East Legon']);
+    });
   });
 });
 
