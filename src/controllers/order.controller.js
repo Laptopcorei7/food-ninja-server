@@ -27,7 +27,8 @@ exports.createOrder = async (req, res) => {
     const orderItems = await Promise.all(
       items.map(async ({ menuItemId, qty }) => {
         const menuItem = await MenuItem.findById(menuItemId);
-        if (!menuItem) throw new Error(`Menu item ${menuItemId} not found`);
+        if (!menuItem)
+          throw Object.assign(new Error(`Menu item ${menuItemId} not found`), { status: 404 });
         return {
           menuItemId: menuItem._id,
           name: menuItem.name,
@@ -53,8 +54,9 @@ exports.createOrder = async (req, res) => {
 
     return res.status(201).json({ success: true, data: order });
   } catch (err) {
-    const status = err.message.includes('not found') ? 404 : 500;
-    return res.status(status).json({ success: false, message: err.message });
+    if (err.status === 404)
+      return res.status(404).json({ success: false, message: err.message });
+    return handleError(res, err);
   }
 };
 
