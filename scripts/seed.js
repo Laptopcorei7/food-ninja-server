@@ -10,9 +10,10 @@ const PaymentMethod = require('../src/models/PaymentMethod');
 const Restaurant = require('../src/models/Restaurant');
 const MenuItem = require('../src/models/MenuItem');
 const Voucher = require('../src/models/Voucher');
-const { IMAGES, RESTAURANTS, VOUCHERS } = require('./seed-data');
+const { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS } = require('./seed-data');
 
-const credit = (key) => ({ name: IMAGES[key].photographer, url: IMAGES[key].source });
+// photoUrl + photoCredit for an image key; nothing for a dish with no photo (null key).
+const photo = (key) => (key ? { photoUrl: IMAGES[key].url, photoCredit: { name: IMAGES[key].photographer, url: IMAGES[key].source } } : {});
 
 const TEST_USER = {
   email: 'tester@foodninja.dev',
@@ -60,13 +61,13 @@ async function seedCatalogue() {
   await Restaurant.init(); // 2dsphere index, needed by the distance filters
 
   let itemCount = 0;
-  for (const r of RESTAURANTS) {
+  const restaurants = [...RESTAURANTS, ...KUMASI_RESTAURANTS];
+  for (const r of restaurants) {
     const restaurant = await Restaurant.create({
       name: r.name,
       address: r.address,
       description: r.description,
-      photoUrl: IMAGES[r.cover].url,
-      photoCredit: credit(r.cover),
+      ...photo(r.cover),
       location: { type: 'Point', coordinates: [r.lng, r.lat] },
       deliveryTimeMins: r.deliveryTimeMins,
       rating: r.rating,
@@ -74,7 +75,7 @@ async function seedCatalogue() {
     });
 
     const items = await MenuItem.insertMany(r.menu.map(([name, category, price, image, rating, orderCount, description]) => ({
-      restaurantId: restaurant._id, name, category, price, photoUrl: IMAGES[image].url, photoCredit: credit(image), rating, orderCount, description,
+      restaurantId: restaurant._id, name, category, price, ...photo(image), rating, orderCount, description,
     })));
     restaurant.popularMenu = items.sort((a, b) => b.orderCount - a.orderCount).slice(0, 5).map((i) => i._id);
     await restaurant.save();
@@ -83,10 +84,10 @@ async function seedCatalogue() {
 
   const day = 24 * 60 * 60 * 1000;
   await Voucher.insertMany(VOUCHERS.map(({ image, daysValid, ...v }) => ({
-    ...v, photoUrl: IMAGES[image].url, photoCredit: credit(image), expiresAt: new Date(Date.now() + daysValid * day),
+    ...v, ...photo(image), expiresAt: new Date(Date.now() + daysValid * day),
   })));
 
-  console.log(`Seeded ${RESTAURANTS.length} restaurants, ${itemCount} menu items, ${VOUCHERS.length} vouchers`);
+  console.log(`Seeded ${restaurants.length} restaurants (${KUMASI_RESTAURANTS.length} in Kumasi), ${itemCount} menu items, ${VOUCHERS.length} vouchers`);
 }
 
 seed()

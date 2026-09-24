@@ -1,5 +1,5 @@
-// Phase-3 dev data: Accra restaurants, menus and home-banner vouchers.
-// Restaurant names are made up; coordinates are real neighbourhood points
+// Phase-3 dev data: Accra and Kumasi restaurants, menus and home-banner vouchers.
+// Accra set: restaurant names are made up; coordinates are real neighbourhood points
 // (0.5 to 15 km from East Legon). Prices are GHS.
 //
 // Every photo is from Unsplash under the Unsplash License
@@ -52,6 +52,9 @@ const IMAGES = {
   smoothie: photo('1615478503562-ec2d8aa0e24e', 'Sara Julie', '9Gz5bMWdGYE'),
   spread: photo('1565895405227-31cffbe0cf86', 'Louis Hansel', 'cH5IPjaAYyo'),
   tableSpread: photo('1681219916726-036039b9b20d', 'Doğu Tuncer', 'KsVXWwHwhzo'),
+  roastPlantain: photo('1507835418932-dfcc1a16d393', 'Victor Kwashie', '4VMr19ljQUA'),
+  friedChicken: photo('1566918214014-a3b3e0132267', 'Huynh Quyet', 'YgirePmHPZU'),
+  steak: photo('1600891964092-4316c288032e', 'Tim Toomey', 'pe9dvM1rQkM'),
 };
 
 // [name, category, price, image, rating, orderCount, description]
@@ -227,6 +230,201 @@ const RESTAURANTS = [
   },
 ];
 
+// ─── Kumasi set: DEV-ONLY TEST DATA. Never load it into production. ───────────
+// These are REAL businesses around KNUST, Kumasi, used so a tester at KNUST School of
+// Business (6.6689, -1.5682) sees realistic distances. Their menus, prices, ratings,
+// order counts and delivery times are INVENTED and do not describe the real places.
+// Distances in the comments are from KSB; the rings are <2, 2-5, 5-10 and >10 km.
+// `coords` says where each point comes from: an OpenStreetMap feature (exact), or
+// "approx": the OSM centre of the named neighbourhood, because OSM has no point for it.
+// A null image means Unsplash has no photo of that dish; the item has no photoUrl.
+const KUMASI_RESTAURANTS = [
+  // < 2 km
+  {
+    name: 'Bush Canteen', address: 'KNUST-Ayeduase-Kotei Road, Ayigya', lat: 6.67578, lng: -1.56482,
+    coords: 'OSM node/11396249092 (0.9 km)', deliveryTimeMins: 10, rating: 4.4, cover: 'roastPlantain',
+    description: 'Campus food court: kebabs, tilapia, waakye and roasted plantain.',
+    menu: [
+      ['Beef Kebab (3 sticks)', 'grills', 20, 'skewers', 4.5, 420, 'Spiced beef skewers off the charcoal.'],
+      ['Grilled Tilapia with Banku', 'grills', 70, 'tilapia', 4.6, 260, 'Whole tilapia, banku, pepper and onions.'],
+      ['Waakye with Egg and Wele', 'rice', 25, 'riceAndBeans', 4.4, 380, 'Waakye with egg, wele, gari and shito.'],
+      ['Roasted Plantain and Groundnuts', 'snacks', 10, 'roastPlantain', 4.5, 300, 'Charcoal-roasted ripe plantain with peanuts.'],
+      ['Jollof with Chicken', 'rice', 40, 'jollof', 4.2, 210, 'Jollof rice with fried chicken.'],
+      ['Sobolo', 'drinks', 8, 'sobolo', 4.3, 190, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'City Beans', address: 'Kotei, near Sunshine Academy', lat: 6.66732, lng: -1.56009,
+    coords: 'approx: Kotei centre (0.9 km)', deliveryTimeMins: 12, rating: 4.5, cover: 'riceAndBeans',
+    description: 'Waakye from early morning.',
+    menu: [
+      ['Waakye Special', 'rice', 30, 'riceAndBeans', 4.6, 350, 'Waakye with egg, spaghetti, wele, fish and shito.'],
+      ['Waakye with Fried Fish', 'rice', 25, 'riceAndBeans', 4.4, 240, 'Waakye with fried fish and shito.'],
+      ['Kelewele', 'snacks', 10, 'plantain', 4.3, 160, 'Spiced fried plantain cubes.'],
+      ['Bofrot (5 pcs)', 'desserts', 5, 'doughnuts', 4.2, 130, 'Ghanaian puff-puff doughnuts.'],
+      ['Sobolo', 'drinks', 8, 'sobolo', 4.3, 150, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'Fritz Eatery', address: 'Ayeduase Gate', lat: 6.67505, lng: -1.55727,
+    coords: 'approx: Ayeduase centre (1.4 km)', deliveryTimeMins: 15, rating: 4.3, cover: 'friedRice',
+    description: 'Rice plates and fried chicken by the Ayeduase gate.',
+    menu: [
+      ['Jollof with Chicken', 'rice', 45, 'jollof', 4.4, 280, 'Jollof rice with grilled chicken and salad.'],
+      ['Chicken Fried Rice', 'rice', 45, 'friedRice', 4.3, 230, 'Fried rice with vegetables and chicken.'],
+      ['Assorted Fried Rice', 'rice', 55, 'friedRiceBowl', 4.4, 150, 'Fried rice with beef, sausage and chicken.'],
+      ['Fried Chicken (3 pcs)', 'grills', 35, 'friedChicken', 4.2, 170, 'Crispy fried chicken with pepper sauce.'],
+      ['Spring Rolls (4 pcs)', 'snacks', 20, 'springRolls', 4.0, 70, 'Vegetable spring rolls.'],
+      ['Fresh Orange Juice', 'drinks', 12, 'orangeJuice', 4.1, 90, 'Pressed oranges.'],
+    ],
+  },
+  {
+    name: 'Kele Boss', address: 'Ayeduase', lat: 6.67505, lng: -1.55727,
+    coords: 'approx: Ayeduase centre (1.4 km)', deliveryTimeMins: 15, rating: 4.6, cover: 'plantain',
+    description: 'Kelewele and fried yam with pork, late into the night.',
+    menu: [
+      ['Fried Yam with Pork', 'snacks', 40, null, 4.7, 330, 'Fried yam chips with fried pork and pepper.'],
+      ['Kelewele', 'snacks', 10, 'plantain', 4.6, 410, 'Spiced fried plantain cubes.'],
+      ['Kelewele and Groundnuts', 'snacks', 15, 'plantain', 4.5, 220, 'Kelewele with roasted peanuts.'],
+      ['Fried Chicken with Kelewele', 'grills', 45, 'friedChicken', 4.4, 150, 'Fried chicken and a side of kelewele.'],
+      ['Sobolo', 'drinks', 8, 'sobolo', 4.3, 120, 'Chilled hibiscus drink.'],
+    ],
+  },
+  // 2-5 km
+  {
+    name: "Biba's Awaakye Special", address: 'Bomso', lat: 6.68453, lng: -1.58002,
+    coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 18, rating: 4.6, cover: 'riceAndBeans',
+    description: 'Waakye, the Bomso way.',
+    menu: [
+      ['Awaakye Special', 'rice', 35, 'riceAndBeans', 4.7, 390, 'Waakye with egg, wele, fish, gari and shito.'],
+      ['Waakye with Chicken', 'rice', 40, 'riceAndBeans', 4.5, 210, 'Waakye with fried chicken.'],
+      ['Waakye with Fish', 'rice', 28, 'riceAndBeans', 4.4, 180, 'Waakye with fried fish.'],
+      ['Kelewele', 'snacks', 10, 'plantain', 4.3, 120, 'Spiced fried plantain cubes.'],
+      ['Bofrot (5 pcs)', 'desserts', 5, 'doughnuts', 4.1, 90, 'Ghanaian puff-puff doughnuts.'],
+      ['Sobolo', 'drinks', 8, 'sobolo', 4.3, 140, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'TRUBITE Restaurant', address: 'Bomso, behind Ultimate Hostel', lat: 6.68453, lng: -1.58002,
+    coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 20, rating: 4.3, cover: 'soup',
+    description: 'Local dishes, soups and rice plates.',
+    menu: [
+      ['Jollof with Chicken', 'rice', 40, 'jollof', 4.3, 200, 'Jollof rice with chicken.'],
+      ['Banku with Grilled Tilapia', 'grills', 75, 'tilapia', 4.5, 170, 'Tilapia, banku and pepper.'],
+      ['Light Soup with Goat and Fufu', 'soups-stews', 55, 'soupBowl', 4.4, 150, 'Pepper soup with goat meat.'],
+      ['Groundnut Soup with Rice Balls', 'soups-stews', 50, 'soup', 4.3, 110, 'Omo tuo with peanut soup.'],
+      ['Spring Rolls (4 pcs)', 'snacks', 20, 'springRolls', 4.0, 60, 'Vegetable spring rolls.'],
+      ['Sobolo', 'drinks', 8, 'sobolo', 4.2, 100, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'Super-Mc Restaurant (Bomso)', address: 'Bomso', lat: 6.68453, lng: -1.58002,
+    coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 20, rating: 4.2, cover: 'friedChicken',
+    description: 'Fried chicken, jollof and burgers.',
+    menu: [
+      ['Fried Chicken and Chips', 'grills', 45, 'friedChicken', 4.4, 260, 'Three pieces of fried chicken with fries.'],
+      ['Jollof with Chicken', 'rice', 50, 'jollof', 4.3, 240, 'Jollof rice with fried chicken.'],
+      ['Chicken Fried Rice', 'rice', 50, 'friedRice', 4.2, 180, 'Fried rice with chicken.'],
+      ['Beef Burger', 'pizza-burgers', 45, 'burger', 4.1, 120, 'Beef patty, lettuce and tomato.'],
+      ['Ice Cream Cone', 'desserts', 15, 'iceCream', 4.2, 90, 'Soft-serve strawberry cone.'],
+      ['Fresh Orange Juice', 'drinks', 12, 'orangeJuice', 4.1, 80, 'Pressed oranges.'],
+    ],
+  },
+  // 5-10 km
+  {
+    name: 'The Pine Restaurant', address: 'Ahodwo', lat: 6.65652, lng: -1.61965,
+    coords: 'approx: Ahodwo centre (5.9 km)', deliveryTimeMins: 30, rating: 4.4, cover: 'tilapia',
+    description: 'Ghanaian classics in Ahodwo.',
+    menu: [
+      ['Grilled Tilapia with Banku', 'grills', 150, 'tilapia', 4.6, 140, 'Whole tilapia, banku and shito.'],
+      ['Jollof with Grilled Chicken', 'rice', 90, 'jollof', 4.4, 160, 'Jollof rice with grilled chicken.'],
+      ['Palava Sauce with Yam', 'soups-stews', 80, 'greenStew', 4.3, 90, 'Kontomire stew with boiled yam.'],
+      ['Groundnut Soup with Chicken', 'soups-stews', 90, 'soup', 4.4, 100, 'Peanut soup with chicken.'],
+      ['Vanilla Ice Cream', 'desserts', 35, 'vanillaIceCream', 4.2, 60, 'Two scoops with sprinkles.'],
+      ['Fruit Juice Trio', 'drinks', 30, 'juices', 4.1, 50, 'Pineapple, watermelon and orange.'],
+    ],
+  },
+  {
+    name: 'CASA Restaurant and Bar', address: 'Ofori Kuragu Avenue, Ahodwo Atinga Junction', lat: 6.66117, lng: -1.62102,
+    coords: 'OSM node/11532702854 (5.9 km)', deliveryTimeMins: 32, rating: 4.5, cover: 'steak',
+    description: 'Grills, pizza and continental plates.',
+    menu: [
+      ['Grilled Steak and Fries', 'grills', 180, 'steak', 4.6, 110, 'Sirloin steak with fries.'],
+      ['Mixed Grill Platter', 'grills', 200, 'grillPlatter', 4.5, 90, 'Chicken, beef and sausage with vegetables.'],
+      ['Margherita Pizza', 'pizza-burgers', 120, 'pizza', 4.4, 130, 'Tomato, mozzarella and basil.'],
+      ['Cheeseburger', 'pizza-burgers', 90, 'cheeseburger', 4.3, 120, 'Double patty with cheddar.'],
+      ['Prawn Fried Rice', 'rice', 110, 'prawnRice', 4.4, 80, 'Fried rice with prawns.'],
+      ['Chocolate Cake Slice', 'desserts', 45, 'chocolateCake', 4.3, 60, 'Rich chocolate sponge.'],
+      ['Berry Smoothie', 'drinks', 40, 'smoothie', 4.2, 50, 'Strawberry, banana and blackberry.'],
+    ],
+  },
+  {
+    name: 'CEDAR', address: 'Kufuor II Street, Ahodwo-Nhyiaeso', lat: 6.66329, lng: -1.62213,
+    coords: 'OSM node/11532723444 (6.0 km)', deliveryTimeMins: 32, rating: 4.4, cover: 'pizzaBoard',
+    description: 'Pizza, grills and desserts.',
+    menu: [
+      ['Pepperoni Pizza', 'pizza-burgers', 130, 'pepperoni', 4.5, 120, 'Beef pepperoni and mozzarella.'],
+      ['Grilled Steak', 'grills', 190, 'steak', 4.4, 70, 'Steak with fries and vegetables.'],
+      ['Half Grilled Chicken', 'grills', 120, 'wholeChicken', 4.3, 90, 'Charcoal chicken with pepper sauce.'],
+      ['Spring Rolls (6 pcs)', 'snacks', 45, 'springRolls', 4.1, 60, 'Vegetable spring rolls.'],
+      ['Chocolate Cake Slice', 'desserts', 50, 'chocolateCake', 4.4, 70, 'Rich chocolate sponge.'],
+      ['Berry Smoothie', 'drinks', 40, 'smoothie', 4.2, 40, 'Strawberry, banana and blackberry.'],
+    ],
+  },
+  {
+    name: '+2 Pub & Kitchen', address: 'Nhyiaeso', lat: 6.66904, lng: -1.62893,
+    coords: 'OSM node/11399039771 (6.7 km)', deliveryTimeMins: 35, rating: 4.3, cover: 'skewersFries',
+    description: 'Local and international pub food.',
+    menu: [
+      ['Beef Kebab Platter', 'grills', 60, 'skewers', 4.4, 150, 'Five beef skewers with onions.'],
+      ['Grilled Tilapia', 'grills', 140, 'fishLemon', 4.5, 90, 'Whole tilapia with lemon and pepper.'],
+      ['Fried Chicken and Chips', 'grills', 90, 'friedChicken', 4.2, 110, 'Fried chicken with fries.'],
+      ['Jollof with Chicken', 'rice', 80, 'jollof', 4.3, 120, 'Jollof rice with grilled chicken.'],
+      ['Kelewele', 'snacks', 30, 'plantain', 4.4, 130, 'Spiced fried plantain cubes.'],
+      ['Sobolo', 'drinks', 20, 'sobolo', 4.2, 70, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'AMBE Restaurant', address: 'Nhyiaeso', lat: 6.65918, lng: -1.63313,
+    coords: 'OSM node/11399151646 (7.3 km)', deliveryTimeMins: 38, rating: 4.5, cover: 'egusi',
+    description: 'Soups, stews and Ghanaian mains.',
+    menu: [
+      ['Egusi Soup with Assorted Meat', 'soups-stews', 100, 'egusi', 4.6, 110, 'Melon seed soup with assorted meat.'],
+      ['Light Soup with Goat and Fufu', 'soups-stews', 90, 'soupBowl', 4.5, 100, 'Pepper soup with goat meat.'],
+      ['Jollof with Grilled Chicken', 'rice', 85, 'jollof', 4.4, 130, 'Jollof rice with grilled chicken.'],
+      ['Waakye Special', 'rice', 70, 'riceAndBeans', 4.3, 90, 'Waakye with egg, wele and shito.'],
+      ['Half Grilled Chicken', 'grills', 110, 'wholeChicken', 4.3, 70, 'Charcoal chicken quarter.'],
+      ['Fruit Juice Trio', 'drinks', 30, 'juices', 4.1, 40, 'Pineapple, watermelon and orange.'],
+    ],
+  },
+  // > 10 km (La Donna Lounge is just past the 12 km ring on purpose)
+  {
+    name: 'Waakye Boutique', address: 'Kumasi', lat: 6.69287, lng: -1.65741,
+    coords: 'OSM node/6937977747 (10.2 km)', deliveryTimeMins: 45, rating: 4.4, cover: 'riceAndBeans',
+    description: 'Waakye plates, from basic to loaded.',
+    menu: [
+      ['Waakye Special', 'rice', 35, 'riceAndBeans', 4.5, 200, 'Waakye with egg, wele, fish and shito.'],
+      ['Waakye with Chicken', 'rice', 45, 'riceAndBeans', 4.4, 130, 'Waakye with fried chicken.'],
+      ['Kelewele', 'snacks', 12, 'plantain', 4.3, 90, 'Spiced fried plantain cubes.'],
+      ['Bofrot (5 pcs)', 'desserts', 6, 'doughnuts', 4.1, 70, 'Ghanaian puff-puff doughnuts.'],
+      ['Sobolo', 'drinks', 10, 'sobolo', 4.2, 80, 'Chilled hibiscus drink.'],
+    ],
+  },
+  {
+    name: 'La Donna Lounge', address: 'Kumasi-Ejisu Road', lat: 6.72287, lng: -1.47230,
+    coords: 'OSM node/14180409149 (12.2 km)', deliveryTimeMins: 50, rating: 4.3, cover: 'pizza',
+    description: 'Lounge food: pizza, burgers and grills.',
+    menu: [
+      ['Margherita Pizza', 'pizza-burgers', 110, 'pizza', 4.3, 80, 'Tomato, mozzarella and basil.'],
+      ['Beef Burger', 'pizza-burgers', 85, 'burgerTray', 4.2, 70, 'Beef patty with cheddar and onions.'],
+      ['Half Grilled Chicken', 'grills', 120, 'wholeChicken', 4.3, 60, 'Charcoal chicken with pepper sauce.'],
+      ['Assorted Fried Rice', 'rice', 90, 'friedRiceBowl', 4.2, 60, 'Fried rice with beef, sausage and chicken.'],
+      ['Vanilla Ice Cream', 'desserts', 35, 'vanillaIceCream', 4.1, 40, 'Two scoops with sprinkles.'],
+      ['Berry Smoothie', 'drinks', 40, 'smoothie', 4.2, 35, 'Strawberry, banana and blackberry.'],
+    ],
+  },
+];
+
 const VOUCHERS = [
   {
     title: 'Jollof Friday',
@@ -244,4 +442,4 @@ const VOUCHERS = [
   },
 ];
 
-module.exports = { IMAGES, RESTAURANTS, VOUCHERS };
+module.exports = { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS };
