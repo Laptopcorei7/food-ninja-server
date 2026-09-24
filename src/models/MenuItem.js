@@ -16,6 +16,7 @@ const menuItemSchema = new mongoose.Schema({
   price: { type: Number, required: true },
   category: { type: String, enum: CATEGORIES },
   photoUrl: String,
+  photoCredit: { name: String, url: String }, // photographer and photo page, for the credits list
   rating: { type: Number, default: 0 },
   orderCount: { type: Number, default: 0 },
   ingredients: [String],

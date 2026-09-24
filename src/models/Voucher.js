@@ -4,6 +4,7 @@ const voucherSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: String,
   photoUrl: String,
+  photoCredit: { name: String, url: String }, // photographer and photo page, for the credits list
   discountAmount: { type: Number, required: true },
   expiresAt: Date,
   active: { type: Boolean, default: true },

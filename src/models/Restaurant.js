@@ -10,6 +10,7 @@ const pointSchema = new mongoose.Schema({
 const restaurantSchema = new mongoose.Schema({
   name: { type: String, required: true },
   photoUrl: String,
+  photoCredit: { name: String, url: String }, // photographer and photo page, for the credits list
   location: pointSchema,
   address: String,
   deliveryTimeMins: Number,
