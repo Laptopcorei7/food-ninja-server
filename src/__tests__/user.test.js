@@ -160,6 +160,21 @@ describe('POST /users/me/photo', () => {
     expect(res.body.message).toBe('No file uploaded');
   });
 
+  it('stores and returns a relative /uploads path', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .post(`${BASE}/me/photo`)
+      .set('Authorization', authHeader(user._id))
+      .attach('photo', Buffer.from('fake'), { filename: 'me.jpg', contentType: 'image/jpeg' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.photoUrl).toMatch(/^\/uploads\/[^/]+\.jpg$/);
+    await require('fs').promises.unlink(require('path').join(__dirname, '..', '..', res.body.data.photoUrl));
+
+    const me = await request(app).get(`${BASE}/me`).set('Authorization', authHeader(user._id));
+    expect(me.body.data.user.photo).toBe(res.body.data.photoUrl);
+  });
+
   it('returns JSON 400 for a non-image file', async () => {
     const user = await createUser();
     const res = await request(app)
