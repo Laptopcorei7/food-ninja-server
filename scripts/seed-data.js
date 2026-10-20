@@ -231,18 +231,18 @@ const RESTAURANTS = [
 ];
 
 // ─── Kumasi set: DEV-ONLY TEST DATA. Never load it into production. ───────────
-// These are REAL businesses around KNUST, Kumasi, used so a tester at KNUST School of
-// Business (6.6689, -1.5682) sees realistic distances. Their menus, prices, ratings,
-// order counts and delivery times are INVENTED and do not describe the real places.
+// Invented restaurants at real map points around KNUST, Kumasi, so a tester at KNUST School
+// of Business (6.6689, -1.5682) sees realistic distances. Names, menus, prices, ratings,
+// order counts and delivery times are all made up.
 // Distances in the comments are from KSB; the rings are <2, 2-5, 5-10 and >10 km.
-// `coords` says where each point comes from: an OpenStreetMap feature (exact), or
-// "approx": the OSM centre of the named neighbourhood, because OSM has no point for it.
+// `coords` says where each point comes from: an OpenStreetMap map point, or
+// "approx": the OSM centre of the named neighbourhood.
 // A null image means Unsplash has no photo of that dish; the item has no photoUrl.
 const KUMASI_RESTAURANTS = [
   // < 2 km
   {
-    name: 'Bush Canteen', address: 'KNUST-Ayeduase-Kotei Road, Ayigya', lat: 6.67578, lng: -1.56482,
-    coords: 'OSM node/11396249092 (0.9 km)', deliveryTimeMins: 10, rating: 4.4, cover: 'roastPlantain',
+    name: 'Ayigya Campus Grill', address: 'Ayigya', lat: 6.67578, lng: -1.56482,
+    coords: 'OSM point (0.9 km)', deliveryTimeMins: 10, rating: 4.4, cover: 'roastPlantain',
     description: 'Campus food court: kebabs, tilapia, waakye and roasted plantain.',
     menu: [
       ['Beef Kebab (3 sticks)', 'grills', 20, 'skewers', 4.5, 420, 'Spiced beef skewers off the charcoal.'],
@@ -254,7 +254,7 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'City Beans', address: 'Kotei, near Sunshine Academy', lat: 6.66732, lng: -1.56009,
+    name: 'Kotei Morning Waakye', address: 'Kotei', lat: 6.66732, lng: -1.56009,
     coords: 'approx: Kotei centre (0.9 km)', deliveryTimeMins: 12, rating: 4.5, cover: 'riceAndBeans',
     description: 'Waakye from early morning.',
     menu: [
@@ -266,7 +266,7 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'Fritz Eatery', address: 'Ayeduase Gate', lat: 6.67505, lng: -1.55727,
+    name: 'Ayeduase Rice House', address: 'Ayeduase', lat: 6.67505, lng: -1.55727,
     coords: 'approx: Ayeduase centre (1.4 km)', deliveryTimeMins: 15, rating: 4.3, cover: 'friedRice',
     description: 'Rice plates and fried chicken by the Ayeduase gate.',
     menu: [
@@ -279,7 +279,7 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'Kele Boss', address: 'Ayeduase', lat: 6.67505, lng: -1.55727,
+    name: 'Ayeduase Kelewele Corner', address: 'Ayeduase', lat: 6.67505, lng: -1.55727,
     coords: 'approx: Ayeduase centre (1.4 km)', deliveryTimeMins: 15, rating: 4.6, cover: 'plantain',
     description: 'Kelewele and fried yam with pork, late into the night.',
     menu: [
@@ -292,7 +292,7 @@ const KUMASI_RESTAURANTS = [
   },
   // 2-5 km
   {
-    name: "Biba's Awaakye Special", address: 'Bomso', lat: 6.68453, lng: -1.58002,
+    name: 'Bomso Waakye Pot', address: 'Bomso', lat: 6.68453, lng: -1.58002,
     coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 18, rating: 4.6, cover: 'riceAndBeans',
     description: 'Waakye, the Bomso way.',
     menu: [
@@ -305,7 +305,7 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'TRUBITE Restaurant', address: 'Bomso, behind Ultimate Hostel', lat: 6.68453, lng: -1.58002,
+    name: 'Bomso Soup Kitchen', address: 'Bomso', lat: 6.68453, lng: -1.58002,
     coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 20, rating: 4.3, cover: 'soup',
     description: 'Local dishes, soups and rice plates.',
     menu: [
@@ -318,7 +318,7 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'Super-Mc Restaurant (Bomso)', address: 'Bomso', lat: 6.68453, lng: -1.58002,
+    name: 'Bomso Chicken & Burger', address: 'Bomso', lat: 6.68453, lng: -1.58002,
     coords: 'approx: Bomso centre (2.2 km)', deliveryTimeMins: 20, rating: 4.2, cover: 'friedChicken',
     description: 'Fried chicken, jollof and burgers.',
     menu: [
@@ -332,7 +332,7 @@ const KUMASI_RESTAURANTS = [
   },
   // 5-10 km
   {
-    name: 'The Pine Restaurant', address: 'Ahodwo', lat: 6.65652, lng: -1.61965,
+    name: 'Ahodwo Home Kitchen', address: 'Ahodwo', lat: 6.65652, lng: -1.61965,
     coords: 'approx: Ahodwo centre (5.9 km)', deliveryTimeMins: 30, rating: 4.4, cover: 'tilapia',
     description: 'Ghanaian classics in Ahodwo.',
     menu: [
@@ -345,8 +345,8 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'CASA Restaurant and Bar', address: 'Ofori Kuragu Avenue, Ahodwo Atinga Junction', lat: 6.66117, lng: -1.62102,
-    coords: 'OSM node/11532702854 (5.9 km)', deliveryTimeMins: 32, rating: 4.5, cover: 'steak',
+    name: 'Ahodwo Grill Terrace', address: 'Ahodwo', lat: 6.66117, lng: -1.62102,
+    coords: 'OSM point (5.9 km)', deliveryTimeMins: 32, rating: 4.5, cover: 'steak',
     description: 'Grills, pizza and continental plates.',
     menu: [
       ['Grilled Steak and Fries', 'grills', 180, 'steak', 4.6, 110, 'Sirloin steak with fries.'],
@@ -359,8 +359,8 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'CEDAR', address: 'Kufuor II Street, Ahodwo-Nhyiaeso', lat: 6.66329, lng: -1.62213,
-    coords: 'OSM node/11532723444 (6.0 km)', deliveryTimeMins: 32, rating: 4.4, cover: 'pizzaBoard',
+    name: 'Nhyiaeso Pizza Oven', address: 'Ahodwo-Nhyiaeso', lat: 6.66329, lng: -1.62213,
+    coords: 'OSM point (6.0 km)', deliveryTimeMins: 32, rating: 4.4, cover: 'pizzaBoard',
     description: 'Pizza, grills and desserts.',
     menu: [
       ['Pepperoni Pizza', 'pizza-burgers', 130, 'pepperoni', 4.5, 120, 'Beef pepperoni and mozzarella.'],
@@ -372,8 +372,8 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: '+2 Pub & Kitchen', address: 'Nhyiaeso', lat: 6.66904, lng: -1.62893,
-    coords: 'OSM node/11399039771 (6.7 km)', deliveryTimeMins: 35, rating: 4.3, cover: 'skewersFries',
+    name: 'Nhyiaeso Pub Kitchen', address: 'Nhyiaeso', lat: 6.66904, lng: -1.62893,
+    coords: 'OSM point (6.7 km)', deliveryTimeMins: 35, rating: 4.3, cover: 'skewersFries',
     description: 'Local and international pub food.',
     menu: [
       ['Beef Kebab Platter', 'grills', 60, 'skewers', 4.4, 150, 'Five beef skewers with onions.'],
@@ -385,8 +385,8 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'AMBE Restaurant', address: 'Nhyiaeso', lat: 6.65918, lng: -1.63313,
-    coords: 'OSM node/11399151646 (7.3 km)', deliveryTimeMins: 38, rating: 4.5, cover: 'egusi',
+    name: 'Nhyiaeso Stew Pot', address: 'Nhyiaeso', lat: 6.65918, lng: -1.63313,
+    coords: 'OSM point (7.3 km)', deliveryTimeMins: 38, rating: 4.5, cover: 'egusi',
     description: 'Soups, stews and Ghanaian mains.',
     menu: [
       ['Egusi Soup with Assorted Meat', 'soups-stews', 100, 'egusi', 4.6, 110, 'Melon seed soup with assorted meat.'],
@@ -397,10 +397,10 @@ const KUMASI_RESTAURANTS = [
       ['Fruit Juice Trio', 'drinks', 30, 'juices', 4.1, 40, 'Pineapple, watermelon and orange.'],
     ],
   },
-  // > 10 km (La Donna Lounge is just past the 12 km ring on purpose)
+  // > 10 km (Ejisu Road Lounge is just past the 12 km ring on purpose)
   {
-    name: 'Waakye Boutique', address: 'Kumasi', lat: 6.69287, lng: -1.65741,
-    coords: 'OSM node/6937977747 (10.2 km)', deliveryTimeMins: 45, rating: 4.4, cover: 'riceAndBeans',
+    name: 'Kumasi Waakye Bowl', address: 'Kumasi', lat: 6.69287, lng: -1.65741,
+    coords: 'OSM point (10.2 km)', deliveryTimeMins: 45, rating: 4.4, cover: 'riceAndBeans',
     description: 'Waakye plates, from basic to loaded.',
     menu: [
       ['Waakye Special', 'rice', 35, 'riceAndBeans', 4.5, 200, 'Waakye with egg, wele, fish and shito.'],
@@ -411,8 +411,8 @@ const KUMASI_RESTAURANTS = [
     ],
   },
   {
-    name: 'La Donna Lounge', address: 'Kumasi-Ejisu Road', lat: 6.72287, lng: -1.47230,
-    coords: 'OSM node/14180409149 (12.2 km)', deliveryTimeMins: 50, rating: 4.3, cover: 'pizza',
+    name: 'Ejisu Road Lounge', address: 'Kumasi-Ejisu Road', lat: 6.72287, lng: -1.47230,
+    coords: 'OSM point (12.2 km)', deliveryTimeMins: 50, rating: 4.3, cover: 'pizza',
     description: 'Lounge food: pizza, burgers and grills.',
     menu: [
       ['Margherita Pizza', 'pizza-burgers', 110, 'pizza', 4.3, 80, 'Tomato, mozzarella and basil.'],
