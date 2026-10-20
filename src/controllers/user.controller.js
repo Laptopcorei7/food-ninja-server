@@ -54,7 +54,9 @@ exports.uploadPhoto = async (req, res) => {
     if (!req.file)
       return res.status(400).json({ success: false, message: 'No file uploaded' });
 
-    const photoUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+    // Relative path: the app reaches the server at different addresses (emulator, hotspot, LAN)
+    // and prefixes whichever one it is using.
+    const photoUrl = `/uploads/${req.file.filename}`;
     const user = await User.findByIdAndUpdate(req.user._id, { photoUrl }, { new: true });
     return res.json({ success: true, data: { photoUrl: user.photoUrl } });
   } catch (err) {
