@@ -5,6 +5,7 @@ const app = require('../app');
 const User = require('../models/User');
 const Restaurant = require('../models/Restaurant');
 const MenuItem = require('../models/MenuItem');
+const Order = require('../models/Order');
 
 const BASE = '/api/v1/menu-items';
 
@@ -127,6 +128,65 @@ describe('GET /menu-items', () => {
       expect(res.status).toBe(400);
     }
   );
+});
+
+// ─── GET /menu-items/for-you ───────────────────────────────────────────────
+
+describe('GET /menu-items/for-you', () => {
+  const point = (lat, lng) => ({ type: 'Point', coordinates: [lng, lat] });
+  const daysAgo = (n) => new Date(Date.now() - n * 24 * 60 * 60 * 1000);
+
+  beforeAll(() => Restaurant.init()); // $geoNear needs the 2dsphere index
+
+  // Order with a chosen createdAt (timestamps make createdAt immutable through Mongoose).
+  async function placeOrder(userId, restaurantId, item, { status = 'delivered', createdAt = daysAgo(5) } = {}) {
+    const order = await Order.create({ userId, restaurantId, status, items: [{ menuItemId: item._id, qty: 1, price: item.price }] });
+    await Order.collection.updateOne({ _id: order._id }, { $set: { createdAt } });
+  }
+
+  it('without placed orders: top rated first, then nearest', async () => {
+    const user = await createUser();
+    const near = await Restaurant.create({ name: 'Near', location: point(5.636, -0.158) });
+    const far = await Restaurant.create({ name: 'Far', location: point(5.669, -0.166) });
+    const nearDish = await MenuItem.create({ restaurantId: near._id, name: 'Near 4.5', price: 10, rating: 4.5 });
+    await MenuItem.create({ restaurantId: far._id, name: 'Far 4.5', price: 10, rating: 4.5 });
+    await MenuItem.create({ restaurantId: far._id, name: 'Far 4.9', price: 10, rating: 4.9 });
+    await placeOrder(user._id, near._id, nearDish, { status: 'pending' }); // not placed, so ignored
+
+    const res = await request(app)
+      .get(`${BASE}/for-you?lat=5.635&lng=-0.157`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.map((i) => i.name)).toEqual(['Far 4.9', 'Near 4.5', 'Far 4.5']);
+    expect(res.body.data.items[0]).toMatchObject({ restaurant: { name: 'Far' } });
+    expect(res.body.data.items[0].score).toBeUndefined();
+  });
+
+  it('ranks by ordered category and restaurant, and leaves out dishes ordered in the last 2 days', async () => {
+    const user = await createUser();
+    const usual = await Restaurant.create({ name: 'Usual' });
+    const other = await Restaurant.create({ name: 'Other' });
+    const jollof = await MenuItem.create({ restaurantId: usual._id, name: 'Jollof', price: 40, category: 'rice', rating: 4 });
+    const waakye = await MenuItem.create({ restaurantId: usual._id, name: 'Waakye', price: 35, category: 'rice', rating: 4 });
+    await MenuItem.create({ restaurantId: other._id, name: 'Fried Rice', price: 30, category: 'rice', rating: 4 });
+    await MenuItem.create({ restaurantId: other._id, name: 'Top Cake', price: 30, category: 'desserts', rating: 5 });
+    await placeOrder(user._id, usual._id, jollof);
+    await placeOrder(user._id, usual._id, waakye, { createdAt: daysAgo(1) });
+
+    const res = await request(app)
+      .get(`${BASE}/for-you`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    // Waakye was ordered yesterday, so it is left out.
+    expect(res.body.data.items.map((i) => i.name)).toEqual(['Jollof', 'Fried Rice', 'Top Cake']);
+  });
+
+  it('returns 401 without a token', async () => {
+    const res = await request(app).get(`${BASE}/for-you`);
+    expect(res.status).toBe(401);
+  });
 });
 
 // ─── GET /menu-items/:id ───────────────────────────────────────────────────
