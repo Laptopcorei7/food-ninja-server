@@ -112,6 +112,28 @@ describe('GET /restaurants', () => {
     expect(res.body.message).toBe('Unknown category: sushi');
   });
 
+  it('keeps restaurants rated at least minRating', async () => {
+    const user = await createUser();
+    await createRestaurant({ name: 'Low', rating: 3.9 });
+    await createRestaurant({ name: 'High', rating: 4 });
+
+    const res = await request(app)
+      .get(`${BASE}?minRating=4`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.map((r) => r.name)).toEqual(['High']);
+  });
+
+  it('rejects minRating above 5 (400)', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .get(`${BASE}?minRating=5.5`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(400);
+  });
+
   it('rejects lat without lng (400)', async () => {
     const user = await createUser();
     const res = await request(app)
@@ -169,6 +191,20 @@ describe('GET /restaurants/:id', () => {
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.data.name).toBe('Burger Place');
+    expect(res.body.data.distanceKm).toBeNull();
+  });
+
+  it('adds distanceKm when given lat/lng', async () => {
+    await Restaurant.init(); // $geoNear needs the 2dsphere index
+    const user = await createUser();
+    const restaurant = await createRestaurant({ location: { type: 'Point', coordinates: [-0.158, 5.636] } });
+
+    const res = await request(app)
+      .get(`${BASE}/${restaurant._id}?lat=5.635&lng=-0.157`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.distanceKm).toBeCloseTo(0.2, 1);
   });
 
   it('returns 404 for a non-existent restaurant', async () => {

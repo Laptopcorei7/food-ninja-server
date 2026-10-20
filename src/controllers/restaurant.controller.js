@@ -18,6 +18,7 @@ exports.listRestaurants = async (req, res) => {
     const match = {};
     if (q.search) match.name = q.search;
     if (q.categories.length) match.categories = { $in: q.categories };
+    if (q.minRating !== null) match.rating = { $gte: q.minRating };
 
     const sort = q.sort ?? (q.point ? 'distance' : 'rating');
     const result = await Restaurant.aggregate([
@@ -34,14 +35,21 @@ exports.listRestaurants = async (req, res) => {
   }
 };
 
+// Optional lat/lng add distanceKm (null without them), same as the list.
 exports.getRestaurant = async (req, res) => {
   try {
+    const q = parseListQuery(req.query);
+    if (q.error) return res.status(400).json({ success: false, message: q.error });
+
     const restaurant = await Restaurant.findById(req.params.id)
       .populate({ path: 'popularMenu', options: { limit: 5 } });
     if (!restaurant)
       return res.status(404).json({ success: false, message: 'Restaurant not found' });
 
-    return res.json({ success: true, data: restaurant });
+    const [near] = q.point
+      ? await Restaurant.aggregate([geoNearStage(q, { _id: restaurant._id }), { $project: { distanceKm: 1 } }, roundDistance])
+      : [];
+    return res.json({ success: true, data: { ...restaurant.toObject(), distanceKm: near?.distanceKm ?? null } });
   } catch (err) {
     return handleError(res, err);
   }

@@ -17,6 +17,7 @@ exports.listMenuItems = async (req, res) => {
     const match = {};
     if (q.search) match.name = q.search;
     if (q.categories.length) match.category = { $in: q.categories };
+    if (q.minRating !== null) match.rating = { $gte: q.minRating };
 
     // An item's distance is its restaurant's distance, so find the restaurants in range
     // first and copy each one's distance onto its items.
@@ -28,11 +29,9 @@ exports.listMenuItems = async (req, res) => {
       distanceKm = { $arrayElemAt: [nearby.map((r) => r.distanceKm), { $indexOfArray: [ids, '$restaurantId'] }] };
     }
 
-    const result = await MenuItem.aggregate([
-      { $match: match },
-      { $addFields: { distanceKm } },
-      { $sort: SORT_STAGES[q.sort ?? 'popular'] },
-      pageFacet(q, [
+    // priceRange covers every filter except maxPrice, so the app's price slider keeps
+    // fixed ends while the user drags it. maxPrice applies inside the page and count.
+    const facet = pageFacet(q, [
         roundDistance,
         {
           $lookup: {
@@ -45,10 +44,24 @@ exports.listMenuItems = async (req, res) => {
         },
         { $set: { restaurant: { $first: '$restaurant' } } },
         { $project: { testimonials: 0 } },
-      ]),
+      ]);
+    if (q.maxPrice !== null) {
+      const byPrice = { $match: { price: { $lte: q.maxPrice } } };
+      facet.$facet.items.unshift(byPrice);
+      facet.$facet.total.unshift(byPrice);
+    }
+    facet.$facet.priceRange = [{ $group: { _id: null, min: { $min: '$price' }, max: { $max: '$price' } } }];
+
+    const result = await MenuItem.aggregate([
+      { $match: match },
+      { $addFields: { distanceKm } },
+      { $sort: SORT_STAGES[q.sort ?? 'popular'] },
+      facet,
     ]);
 
-    return res.json({ success: true, data: pageResponse(result, q) });
+    const range = result[0].priceRange[0];
+    const priceRange = range ? { min: range.min, max: range.max } : null;
+    return res.json({ success: true, data: { ...pageResponse(result, q), priceRange } });
   } catch (err) {
     return handleError(res, err);
   }

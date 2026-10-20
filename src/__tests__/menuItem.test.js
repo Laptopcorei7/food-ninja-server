@@ -88,6 +88,45 @@ describe('GET /menu-items', () => {
 
     expect(res.body.data.items[0].name).toBe('Jollof Rice');
   });
+
+  it('filters by minRating and maxPrice; priceRange ignores maxPrice', async () => {
+    const user = await createUser();
+    const r = await Restaurant.create({ name: 'Mix' });
+    await MenuItem.create({ restaurantId: r._id, name: 'Cheap good', price: 10, rating: 4.6, description: 'Tasty' });
+    await MenuItem.create({ restaurantId: r._id, name: 'Dear good', price: 90, rating: 4.8 });
+    await MenuItem.create({ restaurantId: r._id, name: 'Cheap poor', price: 5, rating: 3 });
+
+    const res = await request(app)
+      .get(`${BASE}?minRating=4.5&maxPrice=50`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.items.map((i) => i.name)).toEqual(['Cheap good']);
+    expect(res.body.data.items[0]).toMatchObject({ description: 'Tasty', rating: 4.6, tags: [] });
+    expect(res.body.data.total).toBe(1);
+    expect(res.body.data.priceRange).toEqual({ min: 10, max: 90 });
+  });
+
+  it('returns priceRange null when nothing matches', async () => {
+    const user = await createUser();
+    const res = await request(app)
+      .get(`${BASE}?search=nothing`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.body.data.priceRange).toBeNull();
+  });
+
+  it.each(['minRating=6', 'minRating=-1', 'minRating=abc', 'minRating=', 'maxPrice=-5', 'maxPrice=x'])(
+    'rejects %s (400)',
+    async (param) => {
+      const user = await createUser();
+      const res = await request(app)
+        .get(`${BASE}?${param}`)
+        .set('Authorization', authHeader(user._id));
+
+      expect(res.status).toBe(400);
+    }
+  );
 });
 
 // ─── GET /menu-items/:id ───────────────────────────────────────────────────

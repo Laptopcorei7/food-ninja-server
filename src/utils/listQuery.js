@@ -1,5 +1,6 @@
 // Shared params for GET /restaurants and GET /menu-items:
-// search, category (repeated or comma-separated), lat, lng, maxKm, sort, page, limit.
+// search, category (repeated or comma-separated), lat, lng, maxKm, minRating, maxPrice, sort, page, limit.
+// maxPrice only applies to menu items.
 const CATEGORIES = require('./categories');
 
 const SORTS = ['distance', 'rating', 'popular'];
@@ -17,6 +18,14 @@ function coordinate(value, max) {
   if (typeof value !== 'string' || value.trim() === '') return null;
   const n = Number(value);
   return Number.isFinite(n) && Math.abs(n) <= max ? n : null;
+}
+
+// Optional numeric param: null when absent, NaN when not a finite number.
+function number(value) {
+  if (value === undefined) return null;
+  if (typeof value !== 'string' || value.trim() === '') return NaN;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : NaN;
 }
 
 // Returns { error } for a bad request, otherwise the parsed options.
@@ -43,6 +52,11 @@ exports.parseListQuery = (query) => {
     }
   }
 
+  const minRating = number(query.minRating);
+  if (Number.isNaN(minRating) || minRating < 0 || minRating > 5) return { error: 'minRating must be a number from 0 to 5' };
+  const maxPrice = number(query.maxPrice);
+  if (Number.isNaN(maxPrice) || maxPrice < 0) return { error: 'maxPrice must be a number of 0 or more' };
+
   if (query.sort !== undefined && !SORTS.includes(query.sort))
     return { error: `sort must be one of: ${SORTS.join(', ')}` };
 
@@ -53,6 +67,8 @@ exports.parseListQuery = (query) => {
     categories,
     point,
     maxMeters,
+    minRating,
+    maxPrice,
     // distance needs a location; without one the caller's default applies
     sort: query.sort === 'distance' && !point ? undefined : query.sort,
     page: positiveInt(query.page, 1),
