@@ -442,4 +442,13 @@ const VOUCHERS = [
   },
 ];
 
-module.exports = { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS };
+// Portion sizes (extraPrice in GHS) for a few kinds of dish; every other dish has none.
+const PORTIONS = [
+  [/pizza/i, [['Small', 0], ['Medium', 25], ['Large', 50]]],
+  [/jollof|fried rice/i, [['Regular', 0], ['Large', 15]]],
+  [/sobolo|orange juice/i, [['Small', 0], ['Large', 5]]],
+];
+const portionsFor = (name) =>
+  (PORTIONS.find(([pattern]) => pattern.test(name))?.[1] ?? []).map(([n, extraPrice]) => ({ name: n, extraPrice }));
+
+module.exports = { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS, portionsFor };

@@ -10,6 +10,12 @@ const testimonialSchema = new mongoose.Schema({
   comment: String,
 }, { _id: false });
 
+// A portion size. The first option is the default; its extraPrice is usually 0.
+const optionSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  extraPrice: { type: Number, default: 0, min: 0 }, // GHS on top of price
+});
+
 const menuItemSchema = new mongoose.Schema({
   restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   name: { type: String, required: true },
@@ -22,6 +28,7 @@ const menuItemSchema = new mongoose.Schema({
   ingredients: [String],
   description: String,
   tags: [String],
+  options: [optionSchema],
   testimonials: [testimonialSchema],
 }, { timestamps: true });
 
