@@ -350,3 +350,104 @@ describe('POST /orders/:id/place', () => {
     expect(res.status).toBe(404);
   });
 });
+
+// ─── /cart ─────────────────────────────────────────────────────────────────
+
+describe('/cart', () => {
+  const CART = '/api/v1/cart';
+  const add = (user, body) => request(app).post(`${CART}/items`).set('Authorization', authHeader(user._id)).send(body);
+
+  async function createPizza(restaurantId) {
+    return createMenuItem(restaurantId, {
+      name: 'Margherita',
+      price: 95,
+      options: [{ name: 'Small', extraPrice: 0 }, { name: 'Large', extraPrice: 50 }],
+    });
+  }
+
+  it('merges the same dish and option into one line and totals the order', async () => {
+    const user = await createUser();
+    const restaurant = await createRestaurant();
+    const pizza = await createPizza(restaurant._id);
+    const large = pizza.options[1]._id;
+
+    await add(user, { menuItemId: pizza._id, qty: 1, optionId: large });
+    const res = await add(user, { menuItemId: pizza._id, qty: 2, optionId: large });
+
+    expect(res.status).toBe(200);
+    const { order, cartCount } = res.body.data;
+    expect(order.items).toHaveLength(1);
+    expect(order.items[0]).toMatchObject({ qty: 3, price: 145, optionName: 'Large', restaurantName: 'Burger Place' });
+    expect(order.items[0].optionId).toBe(String(large));
+    expect(order).toMatchObject({ status: 'pending', subTotal: 435, total: 445 });
+    expect(cartCount).toBe(3);
+    expect(await Order.countDocuments()).toBe(1);
+  });
+
+  it('uses the first option when none is sent and keeps other options on their own line', async () => {
+    const user = await createUser();
+    const restaurant = await createRestaurant();
+    const pizza = await createPizza(restaurant._id);
+
+    await add(user, { menuItemId: pizza._id, qty: 1 });
+    const res = await add(user, { menuItemId: pizza._id, qty: 1, optionId: pizza.options[1]._id });
+
+    expect(res.body.data.order.items.map((i) => [i.optionName, i.price])).toEqual([['Small', 95], ['Large', 145]]);
+    expect(res.body.data.order.subTotal).toBe(240);
+  });
+
+  it('keeps one pending order per restaurant and GET /cart counts across them', async () => {
+    const user = await createUser();
+    const burger = await createMenuItem((await createRestaurant())._id);
+    const waakye = await createMenuItem((await Restaurant.create({ name: 'Waakye Joint' }))._id, { name: 'Waakye', price: 30 });
+
+    await add(user, { menuItemId: burger._id, qty: 2 });
+    const res = await add(user, { menuItemId: waakye._id, qty: 1 });
+    expect(res.body.data.cartCount).toBe(3);
+    expect(res.body.data.order.items[0].optionId).toBeUndefined(); // dish without options
+
+    const cart = await request(app).get(CART).set('Authorization', authHeader(user._id));
+    expect(cart.status).toBe(200);
+    expect(cart.body.data.cartCount).toBe(3);
+    expect(cart.body.data.orders.map((o) => o.items[0].name)).toEqual(['Waakye', 'Cheeseburger']);
+  });
+
+  it('rejects bad qty, an option from another dish, and a merge past 99', async () => {
+    const user = await createUser();
+    const restaurant = await createRestaurant();
+    const pizza = await createPizza(restaurant._id);
+    const other = await createPizza(restaurant._id);
+
+    for (const qty of [0, 100, 1.5, '2', undefined])
+      expect((await add(user, { menuItemId: pizza._id, qty })).status).toBe(400);
+    expect((await add(user, { menuItemId: pizza._id, qty: 1, optionId: other.options[0]._id })).status).toBe(400);
+    expect((await add(user, { menuItemId: pizza._id, qty: 1, optionId: 'nope' })).status).toBe(400);
+    expect((await add(user, { menuItemId: 'nope', qty: 1 })).status).toBe(400);
+    expect((await add(user, { menuItemId: '000000000000000000000001', qty: 1 })).status).toBe(404);
+
+    await add(user, { menuItemId: pizza._id, qty: 60 });
+    const over = await add(user, { menuItemId: pizza._id, qty: 40 });
+    expect(over.status).toBe(400);
+  });
+
+  it('PUT and DELETE on a cart line recompute totals', async () => {
+    const user = await createUser();
+    const pizza = await createPizza((await createRestaurant())._id);
+    const added = await add(user, { menuItemId: pizza._id, qty: 1, optionId: pizza.options[1]._id });
+    const { _id: orderId, items: [line] } = added.body.data.order;
+
+    const put = await request(app)
+      .put(`${BASE}/${orderId}/items/${line._id}`)
+      .set('Authorization', authHeader(user._id))
+      .send({ qty: 2 });
+    expect(put.body.data).toMatchObject({ subTotal: 290, total: 300 });
+
+    const del = await request(app)
+      .delete(`${BASE}/${orderId}/items/${line._id}`)
+      .set('Authorization', authHeader(user._id));
+    expect(del.body.data).toMatchObject({ subTotal: 0, total: 10 });
+
+    const cart = await request(app).get(CART).set('Authorization', authHeader(user._id));
+    expect(cart.body.data).toEqual({ orders: [], cartCount: 0 });
+  });
+});
