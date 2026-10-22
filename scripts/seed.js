@@ -84,9 +84,15 @@ async function seedCatalogue() {
   }
 
   const day = 24 * 60 * 60 * 1000;
-  await Voucher.insertMany(VOUCHERS.map(({ image, daysValid, ...v }) => ({
-    ...v, ...photo(image), expiresAt: new Date(Date.now() + daysValid * day),
-  })));
+  await Voucher.init(); // unique index on code
+  const restaurantIds = new Map((await Restaurant.find({}, 'name').lean()).map((r) => [r.name, r._id]));
+  await Voucher.insertMany(VOUCHERS.map(({ image, daysValid, restaurant, ...v }) => {
+    if (restaurant && !restaurantIds.has(restaurant)) throw new Error(`Voucher ${v.code}: no restaurant named ${restaurant}`);
+    return {
+      ...v, ...photo(image), expiresAt: new Date(Date.now() + daysValid * day),
+      ...(restaurant && { restaurantId: restaurantIds.get(restaurant) }),
+    };
+  }));
 
   console.log(`Seeded ${restaurants.length} restaurants (${KUMASI_RESTAURANTS.length} in Kumasi), ${itemCount} menu items, ${VOUCHERS.length} vouchers`);
 }

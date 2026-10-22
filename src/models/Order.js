@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 
+const STATUS_STEPS = ['placed', 'accepted', 'preparing', 'on_the_way', 'delivered'];
+
 const orderItemSchema = new mongoose.Schema({
   menuItemId: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' },
   name: String,
@@ -21,11 +23,16 @@ const orderSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant', required: true },
   items: [orderItemSchema],
+  // pending = in the cart. Placed orders move along STATUS_STEPS, or to cancelled.
   status: {
     type: String,
-    enum: ['pending', 'processing', 'delivered', 'cancelled'],
+    enum: ['pending', ...STATUS_STEPS, 'cancelled'],
     default: 'pending',
   },
+  statusHistory: [{ status: String, at: Date, _id: false }], // one entry per status after pending
+  estimatedMinutes: Number, // set when placed: restaurant prep time plus travel
+  paymentType: { type: String, enum: ['card', 'momo', 'cash', 'paypal', 'visa', 'payoneer'] },
+  paymentStatus: { type: String, enum: ['pending', 'cash'] }, // no real charge until Paystack
   subTotal: { type: Number, default: 0 },
   deliveryCharge: { type: Number, default: 10 },
   discount: { type: Number, default: 0 },
@@ -38,3 +45,4 @@ const orderSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
+module.exports.STATUS_STEPS = STATUS_STEPS;
