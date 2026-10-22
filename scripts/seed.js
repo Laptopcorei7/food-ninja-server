@@ -10,7 +10,7 @@ const PaymentMethod = require('../src/models/PaymentMethod');
 const Restaurant = require('../src/models/Restaurant');
 const MenuItem = require('../src/models/MenuItem');
 const Voucher = require('../src/models/Voucher');
-const { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS } = require('./seed-data');
+const { IMAGES, RESTAURANTS, KUMASI_RESTAURANTS, VOUCHERS, portionsFor } = require('./seed-data');
 
 // photoUrl + photoCredit for an image key; nothing for a dish with no photo (null key).
 const photo = (key) => (key ? { photoUrl: IMAGES[key].url, photoCredit: { name: IMAGES[key].photographer, url: IMAGES[key].source } } : {});
@@ -76,6 +76,7 @@ async function seedCatalogue() {
 
     const items = await MenuItem.insertMany(r.menu.map(([name, category, price, image, rating, orderCount, description]) => ({
       restaurantId: restaurant._id, name, category, price, ...photo(image), rating, orderCount, description,
+      options: portionsFor(name),
     })));
     restaurant.popularMenu = items.sort((a, b) => b.orderCount - a.orderCount).slice(0, 5).map((i) => i._id);
     await restaurant.save();
