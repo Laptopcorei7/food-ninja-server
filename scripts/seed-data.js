@@ -425,20 +425,34 @@ const KUMASI_RESTAURANTS = [
   },
 ];
 
+// code is what the user types at checkout; minSubTotal in GHS; restaurant (by name) limits a voucher to one place.
 const VOUCHERS = [
   {
     title: 'Jollof Friday',
-    description: 'GHS 20 off any order this week',
+    description: 'GHS 20 off orders of GHS 60 or more',
+    code: 'JOLLOF20',
     discountAmount: 20,
+    minSubTotal: 60,
     image: 'jollof',
     daysValid: 30,
   },
   {
     title: 'Weekend treat',
     description: 'GHS 15 off your weekend order',
+    code: 'WEEKEND15',
     discountAmount: 15,
     image: 'grillPlatter',
     daysValid: 14,
+  },
+  {
+    title: 'Pizza night',
+    description: 'GHS 25 off at Airport City Pizzeria, orders of GHS 100 or more',
+    code: 'PIZZA25',
+    discountAmount: 25,
+    minSubTotal: 100,
+    restaurant: 'Airport City Pizzeria',
+    image: 'pizza',
+    daysValid: 30,
   },
 ];
 

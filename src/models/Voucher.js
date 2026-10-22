@@ -5,7 +5,10 @@ const voucherSchema = new mongoose.Schema({
   description: String,
   photoUrl: String,
   photoCredit: { name: String, url: String }, // photographer and photo page, for the credits list
-  discountAmount: { type: Number, required: true },
+  code: { type: String, unique: true, sparse: true, uppercase: true, trim: true },
+  discountAmount: { type: Number, required: true }, // flat GHS, once per checkout, once per user
+  minSubTotal: { type: Number, default: 0 }, // counted over the orders the voucher applies to
+  restaurantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Restaurant' }, // set = that restaurant only
   expiresAt: Date,
   active: { type: Boolean, default: true },
 }, { timestamps: true });

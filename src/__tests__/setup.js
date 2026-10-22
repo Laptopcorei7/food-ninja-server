@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const { MongoMemoryReplSet } = require('mongodb-memory-server');
 
 let mongod;
 
@@ -9,7 +9,8 @@ process.env.JWT_SECRET = 'test-secret-do-not-use-in-production';
 beforeAll(async () => {
   // mongod can take over the default 10 s to start on this machine when it is busy.
   // Keep under jest's 30 s testTimeout so a failed start still reports instead of hanging.
-  mongod = await MongoMemoryServer.create({ instance: { launchTimeout: 25000 } });
+  // A one-node replica set: POST /cart/place uses a transaction, which a standalone mongod refuses.
+  mongod = await MongoMemoryReplSet.create({ replSet: { count: 1 }, instanceOpts: [{ launchTimeout: 25000 }] });
   await mongoose.connect(mongod.getUri());
 });
 
