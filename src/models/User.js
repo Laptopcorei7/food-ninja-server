@@ -19,6 +19,7 @@ const userSchema = new mongoose.Schema({
   voucherCount: { type: Number, default: 0 },
   paymentMethods: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod' }],
   defaultPaymentMethod: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod' },
+  favoriteMenuItems: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' }], // oldest first
 }, { timestamps: true });
 
 userSchema.methods.toJSON = function () {

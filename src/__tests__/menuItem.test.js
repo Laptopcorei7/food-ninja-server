@@ -224,4 +224,69 @@ describe('GET /menu-items/:id', () => {
     const res = await request(app).get(`${BASE}/${item._id}`);
     expect(res.status).toBe(401);
   });
+
+  it('adds restaurant, options, isFavorite and distanceKm', async () => {
+    await Restaurant.init();
+    const restaurant = await Restaurant.create({ name: 'Pizzeria', location: { type: 'Point', coordinates: [-0.173, 5.604] } });
+    const item = await MenuItem.create({
+      restaurantId: restaurant._id, name: 'Margherita', price: 95,
+      options: [{ name: 'Small', extraPrice: 0 }, { name: 'Large', extraPrice: 50 }],
+    });
+    const user = await createUser();
+    await User.updateOne({ _id: user._id }, { favoriteMenuItems: [item._id] });
+
+    const res = await request(app)
+      .get(`${BASE}/${item._id}?lat=5.636&lng=-0.158`)
+      .set('Authorization', authHeader(user._id));
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.restaurant).toEqual({ _id: String(restaurant._id), name: 'Pizzeria' });
+    expect(res.body.data.options.map((o) => [o.name, o.extraPrice])).toEqual([['Small', 0], ['Large', 50]]);
+    expect(res.body.data.options[0]._id).toBeDefined();
+    expect(res.body.data.isFavorite).toBe(true);
+    expect(res.body.data.distanceKm).toBeGreaterThan(3);
+
+    const plain = await request(app).get(`${BASE}/${item._id}`).set('Authorization', authHeader(user._id));
+    expect(plain.body.data.distanceKm).toBeNull();
+  });
+});
+
+// ─── /users/me/favorites ───────────────────────────────────────────────────
+
+describe('/users/me/favorites', () => {
+  const FAV = '/api/v1/users/me/favorites';
+
+  it('adds, lists newest first, and removes favourites idempotently', async () => {
+    const user = await createUser();
+    const first = await createMenuItem({ name: 'Waakye' });
+    const second = await createMenuItem({ name: 'Sobolo' });
+    const auth = authHeader(user._id);
+
+    await request(app).put(`${FAV}/${first._id}`).set('Authorization', auth);
+    const again = await request(app).put(`${FAV}/${first._id}`).set('Authorization', auth);
+    expect(again.body.data.favoriteMenuItems).toEqual([String(first._id)]);
+    await request(app).put(`${FAV}/${second._id}`).set('Authorization', auth);
+
+    const list = await request(app).get(FAV).set('Authorization', auth);
+    expect(list.status).toBe(200);
+    expect(list.body.data.items.map((i) => i.name)).toEqual(['Sobolo', 'Waakye']);
+    expect(list.body.data.items[0].restaurant.name).toBe('Burger Place');
+    expect(list.body.data.items[0].score).toBeUndefined();
+
+    const del = await request(app).delete(`${FAV}/${first._id}`).set('Authorization', auth);
+    expect(del.body.data.favoriteMenuItems).toEqual([String(second._id)]);
+    const delAgain = await request(app).delete(`${FAV}/${first._id}`).set('Authorization', auth);
+    expect(delAgain.status).toBe(200);
+    expect(delAgain.body.data.favoriteMenuItems).toEqual([String(second._id)]);
+  });
+
+  it('returns 404 for an unknown dish and 400 for a bad id', async () => {
+    const user = await createUser();
+    const auth = authHeader(user._id);
+    const missing = await request(app).put(`${FAV}/000000000000000000000001`).set('Authorization', auth);
+    expect(missing.status).toBe(404);
+    const bad = await request(app).put(`${FAV}/not-an-id`).set('Authorization', auth);
+    expect(bad.status).toBe(400);
+    expect(bad.body.message).toBe('Invalid id');
+  });
 });

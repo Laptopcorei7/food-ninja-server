@@ -156,13 +156,48 @@ exports.forYou = async (req, res) => {
   }
 };
 
+// GET /users/me/favorites: the user's favourite dishes, newest favourite first, in the
+// /menu-items list shape (same filters, paging and lat/lng distance).
+exports.listFavorites = async (req, res) => {
+  try {
+    const q = parseListQuery(req.query);
+    if (q.error) return res.status(400).json({ success: false, message: q.error });
+    const ids = req.user.favoriteMenuItems;
+    return await sendItems(res, q, {
+      match: { _id: { $in: ids } },
+      addFields: { score: { $indexOfArray: [ids, '$_id'] } }, // position in the list; sendItems drops score from the output
+      sort: { score: -1 },
+    });
+  } catch (err) {
+    return handleError(res, err);
+  }
+};
+
+// The dish with restaurant {_id, name}, isFavorite, and distanceKm when lat/lng are sent (null otherwise).
 exports.getMenuItem = async (req, res) => {
   try {
+    const q = parseListQuery(req.query);
+    if (q.error) return res.status(400).json({ success: false, message: q.error });
+
     const item = await MenuItem.findById(req.params.id);
     if (!item)
       return res.status(404).json({ success: false, message: 'Menu item not found' });
 
-    return res.json({ success: true, data: item });
+    const [restaurant, near] = await Promise.all([
+      Restaurant.findById(item.restaurantId, 'name').lean(),
+      q.point
+        ? Restaurant.aggregate([geoNearStage(q, { _id: item.restaurantId }), { $project: { distanceKm: 1 } }, roundDistance])
+        : [],
+    ]);
+    return res.json({
+      success: true,
+      data: {
+        ...item.toObject(),
+        restaurant: restaurant ?? null,
+        distanceKm: near[0]?.distanceKm ?? null,
+        isFavorite: req.user.favoriteMenuItems.some((id) => id.equals(item._id)),
+      },
+    });
   } catch (err) {
     return handleError(res, err);
   }
