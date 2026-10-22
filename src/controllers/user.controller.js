@@ -1,5 +1,6 @@
 const User = require('../models/User');
 const PaymentMethod = require('../models/PaymentMethod');
+const MenuItem = require('../models/MenuItem');
 const { isE164, E164_MESSAGE } = require('../utils/phone');
 const { handleError } = require('../utils/handleError');
 
@@ -76,6 +77,36 @@ exports.updateLocation = async (req, res) => {
       { new: true }
     );
     return res.json({ success: true, data: { user: formatUser(user) } });
+  } catch (err) {
+    return handleError(res, err);
+  }
+};
+
+// PUT and DELETE /users/me/favorites/:menuItemId. Both are idempotent and return the id list.
+exports.addFavorite = async (req, res) => {
+  try {
+    if (!(await MenuItem.exists({ _id: req.params.menuItemId })))
+      return res.status(404).json({ success: false, message: 'Menu item not found' });
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $addToSet: { favoriteMenuItems: req.params.menuItemId } },
+      { new: true }
+    );
+    return res.json({ success: true, data: { favoriteMenuItems: user.favoriteMenuItems } });
+  } catch (err) {
+    return handleError(res, err);
+  }
+};
+
+exports.removeFavorite = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { $pull: { favoriteMenuItems: req.params.menuItemId } },
+      { new: true }
+    );
+    return res.json({ success: true, data: { favoriteMenuItems: user.favoriteMenuItems } });
   } catch (err) {
     return handleError(res, err);
   }
