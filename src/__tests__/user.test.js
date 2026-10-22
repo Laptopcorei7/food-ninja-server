@@ -325,6 +325,44 @@ describe('POST /users/me/payment-methods', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.paymentMethod.type).toBe('card');
     expect(res.body.data.paymentMethod.last4).toBe('4242');
+    expect(res.body.data.paymentMethod.brand).toBe('visa');
+  });
+
+  it('adds mobile money and rejects full numbers, a card brand on MoMo, and unknown networks', async () => {
+    const user = await createUser();
+    const post = (body) => request(app).post(`${BASE}/me/payment-methods`).set('Authorization', authHeader(user._id)).send(body);
+
+    const momo = await post({ type: 'momo', network: 'MTN', last4: '1234' });
+    expect(momo.status).toBe(201);
+    expect(momo.body.data.paymentMethod).toMatchObject({ type: 'momo', network: 'mtn', last4: '1234', brand: null });
+
+    expect((await post({ type: 'card', last4: '4242424242424242' })).status).toBe(400);
+    expect((await post({ type: 'momo', brand: 'visa' })).status).toBe(400);
+    expect((await post({ type: 'momo', network: 'vodafone' })).status).toBe(400);
+    expect((await post({ type: 'cash' })).status).toBe(400);
+  });
+
+  it('PATCH fills in card details and DELETE removes the method', async () => {
+    const user = await createUser();
+    const auth = authHeader(user._id);
+    const created = await request(app).post(`${BASE}/me/payment-methods`).set('Authorization', auth).send({ type: 'card' });
+    const id = created.body.data.paymentMethod._id;
+
+    const patched = await request(app).patch(`${BASE}/me/payment-methods/${id}`).set('Authorization', auth)
+      .send({ brand: 'mastercard', last4: '5555' });
+    expect(patched.status).toBe(200);
+    expect(patched.body.data.paymentMethod).toMatchObject({ brand: 'mastercard', last4: '5555' });
+    const bad = await request(app).patch(`${BASE}/me/payment-methods/${id}`).set('Authorization', auth).send({ last4: '55' });
+    expect(bad.status).toBe(400);
+
+    const other = await createUser({ email: 'other@example.com' });
+    const notMine = await request(app).patch(`${BASE}/me/payment-methods/${id}`).set('Authorization', authHeader(other._id)).send({ last4: '1111' });
+    expect(notMine.status).toBe(404);
+
+    const del = await request(app).delete(`${BASE}/me/payment-methods/${id}`).set('Authorization', auth);
+    expect(del.status).toBe(200);
+    const list = await request(app).get(`${BASE}/me/payment-methods`).set('Authorization', auth);
+    expect(list.body.data.paymentMethods).toEqual([]);
   });
 
   it('returns 400 when type is missing', async () => {
@@ -343,5 +381,44 @@ describe('POST /users/me/payment-methods', () => {
       .send({ type: 'card' });
 
     expect(res.status).toBe(401);
+  });
+});
+
+// ─── /users/me/addresses ───────────────────────────────────────────────────
+
+describe('/users/me/addresses', () => {
+  const ADDR = `${BASE}/me/addresses`;
+  const home = { label: 'Home', address: 'Lagos Avenue, East Legon', latitude: 5.636, longitude: -0.165 };
+
+  it('adds, lists, updates and removes saved addresses', async () => {
+    const user = await createUser();
+    const auth = authHeader(user._id);
+
+    const created = await request(app).post(ADDR).set('Authorization', auth).send(home);
+    expect(created.status).toBe(201);
+    expect(created.body.data.address).toMatchObject(home);
+    const id = created.body.data.address._id;
+
+    const patched = await request(app).patch(`${ADDR}/${id}`).set('Authorization', auth).send({ label: 'Work' });
+    expect(patched.body.data.address).toMatchObject({ ...home, label: 'Work' });
+
+    const list = await request(app).get(ADDR).set('Authorization', auth);
+    expect(list.body.data.addresses).toHaveLength(1);
+
+    const del = await request(app).delete(`${ADDR}/${id}`).set('Authorization', auth);
+    expect(del.body.data.addresses).toEqual([]);
+    const again = await request(app).delete(`${ADDR}/${id}`).set('Authorization', auth);
+    expect(again.status).toBe(404);
+  });
+
+  it('rejects a missing label, out-of-range coordinates and a bad id', async () => {
+    const user = await createUser();
+    const auth = authHeader(user._id);
+    const post = (body) => request(app).post(ADDR).set('Authorization', auth).send(body);
+
+    expect((await post({ ...home, label: ' ' })).status).toBe(400);
+    expect((await post({ ...home, latitude: 91 })).status).toBe(400);
+    expect((await post({ ...home, longitude: '-0.1' })).status).toBe(400);
+    expect((await request(app).patch(`${ADDR}/nope`).set('Authorization', auth).send({ label: 'X' })).status).toBe(400);
   });
 });

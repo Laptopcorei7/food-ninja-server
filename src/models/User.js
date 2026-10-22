@@ -20,6 +20,7 @@ const userSchema = new mongoose.Schema({
   paymentMethods: [{ type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod' }],
   defaultPaymentMethod: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod' },
   favoriteMenuItems: [{ type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem' }], // oldest first
+  addresses: [{ label: String, address: String, latitude: Number, longitude: Number }], // saved delivery addresses
 }, { timestamps: true });
 
 userSchema.methods.toJSON = function () {
