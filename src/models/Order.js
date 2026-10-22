@@ -6,7 +6,9 @@ const orderItemSchema = new mongoose.Schema({
   photoUrl: String,
   restaurantName: String,
   qty: { type: Number, default: 1 },
-  price: Number,
+  price: Number, // dish price plus the option's extraPrice
+  optionId: mongoose.Schema.Types.ObjectId,
+  optionName: String,
 });
 
 const locationSchema = new mongoose.Schema({
