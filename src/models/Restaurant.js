@@ -15,6 +15,7 @@ const restaurantSchema = new mongoose.Schema({
   address: String,
   deliveryTimeMins: Number,
   rating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 }, // reviews behind rating; 0 means rating is seed data
   description: String,
   categories: [{ type: String, enum: CATEGORIES }],
   tags: [String],

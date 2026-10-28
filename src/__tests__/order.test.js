@@ -56,36 +56,50 @@ async function createOrder(userId, restaurantId, items) {
 // ─── GET /orders ───────────────────────────────────────────────────────────
 
 describe('GET /orders', () => {
-  it('returns all orders for the current user (200)', async () => {
+  const withStatus = async (userId, restaurantId, status) => {
+    const order = await createOrder(userId, restaurantId, [{ menuItemId: restaurantId, name: 'Burger', price: 12, qty: 2 }]);
+    return Order.findByIdAndUpdate(order._id, { status }, { new: true });
+  };
+
+  it('lists placed orders by tab, newest first, with restaurant, itemCount and reviewed', async () => {
     const user = await createUser();
     const restaurant = await createRestaurant();
-    await createOrder(user._id, restaurant._id, [
-      { menuItemId: restaurant._id, name: 'Burger', price: 12, qty: 2 },
-    ]);
+    await withStatus(user._id, restaurant._id, 'pending'); // the cart: never listed
+    const placed = await withStatus(user._id, restaurant._id, 'placed');
+    const onTheWay = await withStatus(user._id, restaurant._id, 'on_the_way');
+    await withStatus(user._id, restaurant._id, 'delivered');
+    await withStatus(user._id, restaurant._id, 'cancelled');
+    const auth = authHeader(user._id);
 
-    const res = await request(app)
-      .get(BASE)
-      .set('Authorization', authHeader(user._id));
-
+    const res = await request(app).get(`${BASE}?tab=active`).set('Authorization', auth);
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data).toMatchObject({ page: 1, totalPages: 1, total: 2 });
+    expect(res.body.data.items.map((o) => o._id)).toEqual([String(onTheWay._id), String(placed._id)]);
+    expect(res.body.data.items[0]).toMatchObject({
+      restaurant: { _id: String(restaurant._id), name: 'Burger Place' }, itemCount: 2, reviewed: false, total: 34,
+    });
+
+    expect((await request(app).get(`${BASE}?tab=completed`).set('Authorization', auth)).body.data.total).toBe(1);
+    expect((await request(app).get(`${BASE}?tab=cancelled`).set('Authorization', auth)).body.data.total).toBe(1);
+    expect((await request(app).get(BASE).set('Authorization', auth)).body.data.total).toBe(4);
+    const page2 = await request(app).get(`${BASE}?tab=active&page=2&limit=1`).set('Authorization', auth);
+    expect(page2.body.data).toMatchObject({ page: 2, totalPages: 2, total: 2 });
+    expect(page2.body.data.items[0]._id).toBe(String(placed._id));
+    expect((await request(app).get(`${BASE}?tab=old`).set('Authorization', auth)).status).toBe(400);
   });
 
   it('does not return other users\' orders', async () => {
     const user = await createUser();
     const other = await createUser({ email: 'other@example.com' });
     const restaurant = await createRestaurant();
-    await createOrder(other._id, restaurant._id, [
-      { menuItemId: restaurant._id, name: 'Burger', price: 12, qty: 1 },
-    ]);
+    await withStatus(other._id, restaurant._id, 'placed');
 
     const res = await request(app)
       .get(BASE)
       .set('Authorization', authHeader(user._id));
 
     expect(res.status).toBe(200);
-    expect(res.body.data).toHaveLength(0);
+    expect(res.body.data.items).toHaveLength(0);
   });
 
   it('returns 401 without a token', async () => {
@@ -569,5 +583,185 @@ describe('checkout', () => {
       .send({ deliveryAddress: address, paymentType: 'cash' });
     expect(res.status).toBe(400);
     expect(res.body.message).toBe('Your cart is empty');
+  });
+});
+
+// ─── After the order: cancel, tracking, review, reorder ────────────────────
+
+describe('after the order', () => {
+  const point = (lat, lng) => ({ type: 'Point', coordinates: [lng, lat] });
+  const home = { address: 'Lagos Avenue, East Legon', latitude: 5.64, longitude: -0.16 };
+  const minutesAgo = (m) => new Date(Date.now() - m * 60000);
+
+  // A placed order of 2 burgers and 1 drink from a restaurant at (5.60, -0.20).
+  async function placedOrder(status = 'placed', extra = {}) {
+    const user = await createUser();
+    const restaurant = await Restaurant.create({ name: 'Burger Place', location: point(5.6, -0.2), rating: 4.7 });
+    const burger = await createMenuItem(restaurant._id, { price: 30, rating: 4.5, options: [{ name: 'Regular' }, { name: 'Large', extraPrice: 5 }] });
+    const drink = await createMenuItem(restaurant._id, { name: 'Sobolo', price: 8 });
+    const order = await Order.create({
+      userId: user._id,
+      restaurantId: restaurant._id,
+      items: [
+        { menuItemId: burger._id, name: 'Cheeseburger', qty: 2, price: 35, optionId: burger.options[1]._id, optionName: 'Large' },
+        { menuItemId: drink._id, name: 'Sobolo', qty: 1, price: 8 },
+      ],
+      status,
+      statusHistory: [{ status: 'placed', at: minutesAgo(5) }],
+      deliveryAddress: home,
+      paymentType: 'card',
+      paymentStatus: 'pending',
+      estimatedMinutes: 40,
+      subTotal: 78,
+      total: 88,
+      ...extra,
+    });
+    return { user, auth: authHeader(user._id), restaurant, burger, drink, order };
+  }
+
+  describe('POST /orders/:id/cancel', () => {
+    it('cancels a placed order, keeps the reason and note, and marks a card payment refunded', async () => {
+      const { auth, order } = await placedOrder();
+      const res = await request(app).post(`${BASE}/${order._id}/cancel`).set('Authorization', auth)
+        .send({ reason: ' Ordered by mistake ', note: 'Wrong address' });
+      expect(res.status).toBe(200);
+      expect(res.body.data.order).toMatchObject({
+        status: 'cancelled', cancelReason: 'Ordered by mistake', cancelNote: 'Wrong address', paymentStatus: 'refunded',
+        restaurant: { name: 'Burger Place' }, itemCount: 3,
+      });
+      expect(res.body.data.order.statusHistory.map((s) => s.status)).toEqual(['placed', 'cancelled']);
+    });
+
+    it('leaves a cash order as cash', async () => {
+      const { auth, order } = await placedOrder('accepted', { paymentType: 'cash', paymentStatus: 'cash' });
+      const res = await request(app).post(`${BASE}/${order._id}/cancel`).set('Authorization', auth).send({ reason: 'Too slow' });
+      expect(res.body.data.order).toMatchObject({ status: 'cancelled', paymentStatus: 'cash' });
+    });
+
+    it('refuses once the restaurant is preparing (409) and checks the reason and note (400)', async () => {
+      const { auth, order } = await placedOrder('preparing');
+      const send = (body) => request(app).post(`${BASE}/${order._id}/cancel`).set('Authorization', auth).send(body);
+      expect((await send({ reason: '' })).status).toBe(400);
+      expect((await send({ reason: 'x'.repeat(101) })).status).toBe(400);
+      expect((await send({ reason: 'ok', note: 'x'.repeat(301) })).status).toBe(400);
+      const res = await send({ reason: 'Changed my mind' });
+      expect(res.status).toBe(409);
+      expect(res.body.message).toBe('The restaurant has started on this order, so it can no longer be cancelled');
+      expect((await Order.findById(order._id)).status).toBe('preparing');
+    });
+
+    it('returns 404 for another user\'s order', async () => {
+      const { order } = await placedOrder();
+      const other = await createUser({ email: 'other@example.com' });
+      const res = await request(app).post(`${BASE}/${order._id}/cancel`).set('Authorization', authHeader(other._id)).send({ reason: 'x' });
+      expect(res.status).toBe(404);
+    });
+  });
+
+  describe('GET /orders/:id/tracking', () => {
+    afterEach(() => { delete process.env.DEV_RIDE_MINUTES; });
+    const track = (auth, order) => request(app).get(`${BASE}/${order._id}/tracking`).set('Authorization', auth);
+
+    it('has no rider before on_the_way and gives the restaurant as lat/lng (not GeoJSON order)', async () => {
+      const { auth, order } = await placedOrder();
+      const res = await track(auth, order);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toMatchObject({
+        status: 'placed',
+        restaurant: { name: 'Burger Place', latitude: 5.6, longitude: -0.2 },
+        destination: home,
+        rider: null,
+        progress: 0,
+      });
+      expect(res.body.data.etaMinutes).toBe(35); // 40 estimated, placed 5 minutes ago
+    });
+
+    it('moves the rider along the line from the restaurant over the ride time', async () => {
+      process.env.DEV_RIDE_MINUTES = '10';
+      const { auth, order } = await placedOrder('on_the_way');
+      order.statusHistory.push({ status: 'on_the_way', at: minutesAgo(5) });
+      await order.save();
+
+      const { body } = await track(auth, order);
+      expect(body.data.progress).toBeCloseTo(0.5, 2);
+      expect(body.data.etaMinutes).toBe(5);
+      expect(body.data.rider.latitude).toBeCloseTo(5.62, 3);
+      expect(body.data.rider.longitude).toBeCloseTo(-0.18, 3);
+      expect(body.data.rider.name).toBeTruthy();
+    });
+
+    it('keeps the rider at the destination once the ride time is up and when delivered', async () => {
+      process.env.DEV_RIDE_MINUTES = '1';
+      const { auth, order } = await placedOrder('on_the_way');
+      order.statusHistory.push({ status: 'on_the_way', at: minutesAgo(5) });
+      await order.save();
+      const late = await track(auth, order);
+      expect(late.body.data).toMatchObject({ progress: 1, etaMinutes: 0, rider: { latitude: 5.64, longitude: -0.16 } });
+
+      await Order.updateOne({ _id: order._id }, { status: 'delivered' });
+      const done = await track(auth, order);
+      expect(done.body.data).toMatchObject({ status: 'delivered', progress: 1, etaMinutes: 0, rider: { latitude: 5.64 } });
+    });
+  });
+
+  describe('POST /orders/:id/review', () => {
+    const review = (auth, order, body) => request(app).post(`${BASE}/${order._id}/review`).set('Authorization', auth).send(body);
+
+    it('rates dishes and the restaurant once, replacing the seeded averages', async () => {
+      const { auth, order, burger, drink, restaurant } = await placedOrder('delivered');
+      const res = await review(auth, order, {
+        dishes: [{ menuItemId: burger._id, rating: 3, comment: 'Bit cold' }, { menuItemId: drink._id, rating: 5 }],
+        restaurant: { rating: 4, comment: 'Friendly rider' },
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.data.order.reviewed).toBe(true);
+
+      const ratedBurger = await MenuItem.findById(burger._id);
+      expect(ratedBurger).toMatchObject({ rating: 3, ratingCount: 1 });
+      expect(ratedBurger.testimonials[0]).toMatchObject({ stars: 3, comment: 'Bit cold', userName: 'Test User' });
+      expect(await Restaurant.findById(restaurant._id)).toMatchObject({ rating: 4, ratingCount: 1 });
+
+      const again = await review(auth, order, { dishes: [], restaurant: { rating: 1 } });
+      expect(again.status).toBe(409);
+      expect(again.body.message).toBe('You have already rated this order');
+      expect((await request(app).get(`${BASE}?tab=completed`).set('Authorization', auth)).body.data.items[0].reviewed).toBe(true);
+    });
+
+    it('refuses before delivery (409) and rejects bad ratings and foreign dishes (400)', async () => {
+      const { auth, order, burger, restaurant } = await placedOrder('on_the_way');
+      const ok = { rating: 4 };
+      expect((await review(auth, order, { dishes: [], restaurant: ok })).status).toBe(409);
+
+      await Order.updateOne({ _id: order._id }, { status: 'delivered' });
+      const stranger = await createMenuItem(restaurant._id, { name: 'Not ordered' });
+      expect((await review(auth, order, { dishes: [{ menuItemId: stranger._id, rating: 4 }], restaurant: ok })).status).toBe(400);
+      expect((await review(auth, order, { dishes: [{ menuItemId: burger._id, rating: 4 }, { menuItemId: burger._id, rating: 4 }], restaurant: ok })).status).toBe(400);
+      expect((await review(auth, order, { dishes: [{ menuItemId: burger._id, rating: 4.5 }], restaurant: ok })).status).toBe(400);
+      expect((await review(auth, order, { dishes: [], restaurant: { rating: 6 } })).status).toBe(400);
+      expect((await review(auth, order, { dishes: [], restaurant: { rating: 4, comment: 'x'.repeat(501) } })).status).toBe(400);
+      expect((await Order.findById(order._id)).reviewed).toBe(false);
+    });
+  });
+
+  describe('POST /orders/:id/reorder', () => {
+    it('adds the dishes to the cart, merging with what is there, and skips deleted dishes', async () => {
+      const { auth, order, burger, drink } = await placedOrder('delivered');
+      await request(app).post('/api/v1/cart/items').set('Authorization', auth)
+        .send({ menuItemId: burger._id, optionId: burger.options[1]._id, qty: 1 });
+      await MenuItem.deleteOne({ _id: drink._id });
+
+      const res = await request(app).post(`${BASE}/${order._id}/reorder`).set('Authorization', auth);
+      expect(res.status).toBe(200);
+      expect(res.body.data).toEqual({ cartCount: 3, added: 1, skipped: ['Sobolo'] });
+
+      const cart = await Order.findOne({ status: 'pending' });
+      expect(cart.items).toHaveLength(1);
+      expect(cart.items[0]).toMatchObject({ qty: 3, optionName: 'Large', price: 35 });
+    });
+
+    it('refuses a cart order', async () => {
+      const { auth, order } = await placedOrder('pending');
+      expect((await request(app).post(`${BASE}/${order._id}/reorder`).set('Authorization', auth)).status).toBe(400);
+    });
   });
 });

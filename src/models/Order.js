@@ -32,7 +32,10 @@ const orderSchema = new mongoose.Schema({
   statusHistory: [{ status: String, at: Date, _id: false }], // one entry per status after pending
   estimatedMinutes: Number, // set when placed: restaurant prep time plus travel
   paymentType: { type: String, enum: ['card', 'momo', 'cash', 'paypal', 'visa', 'payoneer'] },
-  paymentStatus: { type: String, enum: ['pending', 'cash'] }, // no real charge until Paystack
+  paymentStatus: { type: String, enum: ['pending', 'cash', 'refunded'] }, // no real charge until Paystack
+  cancelReason: String,
+  cancelNote: String,
+  reviewed: { type: Boolean, default: false }, // set once by POST /orders/:id/review
   subTotal: { type: Number, default: 0 },
   deliveryCharge: { type: Number, default: 10 },
   discount: { type: Number, default: 0 },

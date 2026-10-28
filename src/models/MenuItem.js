@@ -24,6 +24,7 @@ const menuItemSchema = new mongoose.Schema({
   photoUrl: String,
   photoCredit: { name: String, url: String }, // photographer and photo page, for the credits list
   rating: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 }, // reviews behind rating; 0 means rating is seed data
   orderCount: { type: Number, default: 0 },
   ingredients: [String],
   description: String,

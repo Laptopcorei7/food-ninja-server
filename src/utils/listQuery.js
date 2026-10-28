@@ -71,10 +71,15 @@ exports.parseListQuery = (query) => {
     maxPrice,
     // distance needs a location; without one the caller's default applies
     sort: query.sort === 'distance' && !point ? undefined : query.sort,
-    page: positiveInt(query.page, 1),
-    limit: Math.min(positiveInt(query.limit, DEFAULT_LIMIT), MAX_LIMIT),
+    ...exports.parsePage(query),
   };
 };
+
+// page (default 1) and limit (default 20, max 50); bad values fall back to the defaults.
+exports.parsePage = (query) => ({
+  page: positiveInt(query.page, 1),
+  limit: Math.min(positiveInt(query.limit, DEFAULT_LIMIT), MAX_LIMIT),
+});
 
 // First pipeline stage on restaurants: adds distanceKm from the user's location and
 // applies maxKm. `query` is the rest of the filter ($geoNear allows no $match before it).

@@ -3,12 +3,14 @@ const MenuItem = require('../models/MenuItem');
 const Restaurant = require('../models/Restaurant');
 const { handleError } = require('../utils/handleError');
 
+// Replaces the target's rating with the average of its Rating docs; the first review replaces a seeded rating.
 async function updateAverageRating(Model, targetId) {
   const ratings = await Rating.find({ targetId });
   if (!ratings.length) return;
   const avg = ratings.reduce((sum, r) => sum + r.stars, 0) / ratings.length;
-  await Model.findByIdAndUpdate(targetId, { rating: Math.round(avg * 10) / 10 });
+  await Model.findByIdAndUpdate(targetId, { rating: Math.round(avg * 10) / 10, ratingCount: ratings.length });
 }
+exports.updateAverageRating = updateAverageRating;
 
 exports.rateDriver = async (req, res) => {
   try {
