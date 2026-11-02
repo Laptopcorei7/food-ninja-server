@@ -374,8 +374,7 @@ function cancelRefusal(status) {
   return 'The restaurant has started on this order, so it can no longer be cancelled';
 }
 
-// Made-up rider until real drivers exist.
-const DEMO_RIDER = { name: 'Kwabena Owusu', phone: '+233200000000' };
+const { DEMO_RIDER } = Order;
 
 // Ride length in minutes: road (or straight-line) distance at MIN_PER_KM, or
 // DEV_RIDE_MINUTES outside production.

@@ -18,6 +18,7 @@ const ratingRoutes = require('./routes/rating.routes');
 const notificationRoutes = require('./routes/notification.routes');
 const chatRoutes = require('./routes/chat.routes');
 const callRoutes = require('./routes/call.routes');
+const helpRoutes = require('./routes/help.routes');
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/v1/ratings', ratingRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/chats', chatRoutes);
 app.use('/api/v1/calls', callRoutes);
+app.use('/api/v1/help', helpRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });

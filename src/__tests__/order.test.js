@@ -751,6 +751,7 @@ describe('after the order', () => {
       expect(body.data.rider.latitude).toBeCloseTo(5.62, 3);
       expect(body.data.rider.longitude).toBeCloseTo(-0.18, 3);
       expect(body.data.rider.name).toBeTruthy();
+      expect(body.data.rider.phone).toMatch(/^\+233\d{9}$/);
       expect(body.data.route).toBeNull(); // the OSRM call timed out
     });
 

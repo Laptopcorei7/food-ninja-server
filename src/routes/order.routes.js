@@ -13,6 +13,7 @@ const {
   reviewOrder,
   reorder,
 } = require('../controllers/order.controller');
+const { getOrderChat } = require('../controllers/chat.controller');
 
 router.use(protect);
 
@@ -24,6 +25,7 @@ router.put('/:id/items/:itemId', updateOrderItem);
 router.delete('/:id/items/:itemId', removeOrderItem);
 router.post('/:id/cancel', cancelOrder);
 router.get('/:id/tracking', getTracking);
+router.get('/:id/chat', getOrderChat);
 router.post('/:id/review', reviewOrder);
 router.post('/:id/reorder', reorder);
 // Dev only: stands in for the restaurant and rider until they have their own apps

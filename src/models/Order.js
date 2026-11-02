@@ -55,3 +55,5 @@ const orderSchema = new mongoose.Schema({
 
 module.exports = mongoose.model('Order', orderSchema);
 module.exports.STATUS_STEPS = STATUS_STEPS;
+// Made-up rider until real drivers exist (tracking and the rider chat)
+module.exports.DEMO_RIDER = { name: 'Kwabena Owusu', phone: '+233200000000' };
