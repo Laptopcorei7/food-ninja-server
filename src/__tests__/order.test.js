@@ -659,8 +659,71 @@ describe('after the order', () => {
   });
 
   describe('GET /orders/:id/tracking', () => {
-    afterEach(() => { delete process.env.DEV_RIDE_MINUTES; });
+    // OSRM is never called for real: by default it "times out" and tracking falls back.
+    let fetchMock;
+    let errorLog;
+    beforeEach(() => {
+      fetchMock = jest.spyOn(global, 'fetch').mockRejectedValue(new Error('The operation was aborted due to timeout'));
+      errorLog = jest.spyOn(console, 'error').mockImplementation(() => {});
+    });
+    afterEach(() => {
+      delete process.env.DEV_RIDE_MINUTES;
+      fetchMock.mockRestore();
+      errorLog.mockRestore();
+    });
     const track = (auth, order) => request(app).get(`${BASE}/${order._id}/tracking`).set('Authorization', auth);
+    const osrmReply = (body) => fetchMock.mockResolvedValue({ ok: true, status: 200, json: async () => body });
+    // An L-shaped road: east from the restaurant (5.60, -0.20) to (5.60, -0.16), then north to home.
+    const roadReply = () => osrmReply({
+      code: 'Ok',
+      routes: [{ distance: 8900, duration: 900, geometry: { type: 'LineString', coordinates: [[-0.2, 5.6], [-0.16, 5.6], [-0.16, 5.64]] } }],
+    });
+    const road = [{ latitude: 5.6, longitude: -0.2 }, { latitude: 5.6, longitude: -0.16 }, { latitude: 5.64, longitude: -0.16 }];
+
+    it('fetches the road route once, in lng,lat order, and returns it as lat/lng points', async () => {
+      roadReply();
+      const { auth, order } = await placedOrder();
+      const res = await track(auth, order);
+      expect(res.status).toBe(200);
+      expect(res.body.data.route).toEqual(road);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toContain('/route/v1/driving/-0.2,5.6;-0.16,5.64?overview=full&geometries=geojson');
+      expect(init.headers['User-Agent']).toBeTruthy();
+      expect((await Order.findById(order._id)).route).toMatchObject({ distanceM: 8900, points: road });
+
+      const again = await track(auth, order);
+      expect(again.body.data.route).toEqual(road);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    it('puts the rider on the road at progress 0.5, by distance', async () => {
+      roadReply();
+      process.env.DEV_RIDE_MINUTES = '10';
+      const { auth, order } = await placedOrder('on_the_way');
+      order.statusHistory.push({ status: 'on_the_way', at: minutesAgo(5) });
+      await order.save();
+
+      const { body } = await track(auth, order);
+      expect(body.data.progress).toBeCloseTo(0.5, 2);
+      expect(body.data.etaMinutes).toBe(5);
+      // Both legs are about 4.4 km, so halfway is at the corner, not (5.62, -0.18) on the straight line
+      expect(body.data.rider.latitude).toBeCloseTo(5.6, 3);
+      expect(body.data.rider.longitude).toBeCloseTo(-0.16, 3);
+    });
+
+    it('falls back to the straight line, logs, and stores nothing when OSRM finds no route', async () => {
+      osrmReply({ code: 'NoRoute', routes: [] });
+      process.env.DEV_RIDE_MINUTES = '10';
+      const { auth, order } = await placedOrder('on_the_way');
+      order.statusHistory.push({ status: 'on_the_way', at: minutesAgo(5) });
+      await order.save();
+
+      const { body } = await track(auth, order);
+      expect(body.data.route).toBeNull();
+      expect(body.data.rider.latitude).toBeCloseTo(5.62, 3);
+      expect(errorLog).toHaveBeenCalled();
+      expect((await Order.findById(order._id)).route).toBeUndefined();
+    });
 
     it('has no rider before on_the_way and gives the restaurant as lat/lng (not GeoJSON order)', async () => {
       const { auth, order } = await placedOrder();
@@ -688,6 +751,7 @@ describe('after the order', () => {
       expect(body.data.rider.latitude).toBeCloseTo(5.62, 3);
       expect(body.data.rider.longitude).toBeCloseTo(-0.18, 3);
       expect(body.data.rider.name).toBeTruthy();
+      expect(body.data.route).toBeNull(); // the OSRM call timed out
     });
 
     it('keeps the rider at the destination once the ride time is up and when delivered', async () => {

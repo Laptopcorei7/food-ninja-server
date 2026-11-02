@@ -5,6 +5,7 @@ const Restaurant = require('../models/Restaurant');
 const Voucher = require('../models/Voucher');
 const PaymentMethod = require('../models/PaymentMethod');
 const { locationError, distanceKm } = require('../utils/location');
+const { fetchRoute, pointAlong } = require('../utils/route');
 
 const { STATUS_STEPS } = Order;
 const MIN_PER_KM = 3; // rough rider speed, 20 km/h in town
@@ -23,7 +24,8 @@ const TABS = {
 
 // An order as the app shows it: the stored fields plus its restaurant and item count.
 function orderView(order, restaurant) {
-  const o = typeof order.toObject === 'function' ? order.toObject() : order;
+  // the road route is only for GET /orders/:id/tracking
+  const { route, ...o } = typeof order.toObject === 'function' ? order.toObject() : order;
   return {
     ...o,
     restaurant: restaurant ? { _id: restaurant._id, name: restaurant.name } : null,
@@ -375,20 +377,47 @@ function cancelRefusal(status) {
 // Made-up rider until real drivers exist.
 const DEMO_RIDER = { name: 'Kwabena Owusu', phone: '+233200000000' };
 
-// Ride length in minutes: distance at MIN_PER_KM, or DEV_RIDE_MINUTES outside production.
-function rideMinutes(from, to) {
+// Ride length in minutes: road (or straight-line) distance at MIN_PER_KM, or
+// DEV_RIDE_MINUTES outside production.
+function rideMinutes(from, to, route) {
   const dev = Number(process.env.DEV_RIDE_MINUTES);
   if (process.env.NODE_ENV !== 'production' && dev > 0) return dev;
+  if (route?.distanceM) return Math.max(1, (route.distanceM / 1000) * MIN_PER_KM);
   if (!from) return 1;
   return Math.max(1, distanceKm(from.latitude, from.longitude, to.latitude, to.longitude) * MIN_PER_KM);
+}
+
+// After an OSRM failure, wait this long before asking again for the same order,
+// so a polling app does not hit the demo server (and a 5 s timeout) on every call.
+const ROUTE_RETRY_MS = 30000;
+const routeRetryAt = new Map(); // order id -> time
+
+// The order's cached road route, fetched and stored on first use. Null when it
+// cannot be had (no restaurant location, cancelled order, OSRM down).
+async function routeFor(order, from, to) {
+  if (order.route?.points?.length) return order.route;
+  if (!from || to.latitude == null || order.status === 'cancelled') return null;
+  const id = String(order._id);
+  if (Date.now() < (routeRetryAt.get(id) ?? 0)) return null;
+  try {
+    const route = await fetchRoute(from, to);
+    routeRetryAt.delete(id);
+    await Order.updateOne({ _id: order._id }, { $set: { route } });
+    return route;
+  } catch (err) {
+    console.error(`Road route for order ${id} failed, using a straight line:`, err.message);
+    routeRetryAt.set(id, Date.now() + ROUTE_RETRY_MS);
+    return null;
+  }
 }
 
 const minutesSince = (date, now) => (date ? (now - date) / 60000 : 0);
 const statusAt = (order, status) => order.statusHistory.find((s) => s.status === status)?.at;
 
 // GET /orders/:id/tracking: where the (simulated) rider is. The rider appears at the
-// restaurant when the order goes on_the_way and moves in a straight line to the
-// destination over the ride time; it waits there until the order is delivered.
+// restaurant when the order goes on_the_way and moves along the road route (a
+// straight line when there is none) to the destination over the ride time; it
+// waits there until the order is delivered.
 exports.getTracking = async (req, res) => {
   try {
     const order = await findOwnOrder(req);
@@ -401,7 +430,8 @@ exports.getTracking = async (req, res) => {
     const coords = restaurant?.location?.coordinates; // GeoJSON: [lng, lat]
     const from = coords ? { latitude: coords[1], longitude: coords[0] } : null;
     const to = order.deliveryAddress ?? {};
-    const ride = rideMinutes(from, to);
+    const route = await routeFor(order, from, to);
+    const ride = rideMinutes(from, to, route);
     const now = new Date();
 
     let progress = 0;
@@ -420,11 +450,13 @@ exports.getTracking = async (req, res) => {
     let rider = null;
     if (order.status === 'on_the_way' || order.status === 'delivered') {
       const start = from ?? to;
-      rider = {
-        latitude: start.latitude + (to.latitude - start.latitude) * progress,
-        longitude: start.longitude + (to.longitude - start.longitude) * progress,
-        ...DEMO_RIDER,
-      };
+      const at = route && progress < 1
+        ? pointAlong(route.points, progress)
+        : {
+          latitude: start.latitude + (to.latitude - start.latitude) * progress,
+          longitude: start.longitude + (to.longitude - start.longitude) * progress,
+        };
+      rider = { ...at, ...DEMO_RIDER };
     }
 
     return res.json({
@@ -436,6 +468,7 @@ exports.getTracking = async (req, res) => {
         rider,
         etaMinutes,
         progress: Math.round(progress * 1000) / 1000,
+        route: route ? route.points.map((p) => ({ latitude: p.latitude, longitude: p.longitude })) : null,
       },
     });
   } catch (err) {

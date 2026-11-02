@@ -45,6 +45,12 @@ const orderSchema = new mongoose.Schema({
   paymentMethodId: { type: mongoose.Schema.Types.ObjectId, ref: 'PaymentMethod' },
   voucherId: { type: mongoose.Schema.Types.ObjectId, ref: 'Voucher' },
   driverId: { type: mongoose.Schema.Types.ObjectId },
+  // Road route restaurant -> destination, fetched once by GET /orders/:id/tracking
+  route: new mongoose.Schema({
+    points: [{ latitude: Number, longitude: Number, _id: false }],
+    distanceM: Number,
+    durationS: Number,
+  }, { _id: false }),
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
